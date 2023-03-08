@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, fields
 from flask_sqlalchemy import SQLAlchemy
 
@@ -83,7 +83,24 @@ class SensorData(Resource):
         db.session.commit()
 
         return result, 201
+    
+    @app.route('/datatable', methods=['GET'])
+    def get_data_table():
+        # Query all data rows from the database
+        rows = SensorDataModel.query.all()
 
+        # Convert the data rows into a list of dictionaries
+        data_list = []
+        for row in rows:
+            data_dict = {
+                'timestamp': row.timestamp,
+                'temperature': row.temperature,
+                'humidity': row.humidity
+            }
+            data_list.append(data_dict)
+
+        # Return the list of data rows as a JSON response
+        return jsonify(data_list)
     # @marshal_with(resource_fields)    
     # def delete(self, studentID):
     #     # check whether the student ID exist or not
@@ -106,4 +123,4 @@ api.add_resource(SensorData, "/sensordata/<string:time>")
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0',port='8001')
+    app.run(host='localhost',port='8001')
