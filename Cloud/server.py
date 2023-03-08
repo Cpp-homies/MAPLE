@@ -51,38 +51,46 @@ class SensorData(Resource):
     
     @marshal_with(resource_fields)
     def put(self, time):
-        args = sensor_put_args.parse_args()
-        
-        # check whether the timestamp is taken or not
-        result = SensorDataModel.query.filter_by(timestamp=time).first()
-        # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
-        #       + args['humid'] + '}')
-        if result:
-            abort(409, message='Timestamp already exist')
+        try:
+            args = sensor_put_args.parse_args()
+            
+            # check whether the timestamp is taken or not
+            result = SensorDataModel.query.filter_by(timestamp=time).first()
+            # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
+            #       + args['humid'] + '}')
+            if result:
+                abort(409, message='Timestamp already exist')
 
-        # create a student object and add it to the session
-        data = SensorDataModel(timestamp=time, temperature=args['temp'], humidity=args['humid'])
-        db.session.add(data)
-        db.session.commit()
-        return data, 201
+            # create a student object and add it to the session
+            data = SensorDataModel(timestamp=time, temperature=float(args['temp']), humidity=float(args['humid']))
+            db.session.add(data)
+            db.session.commit()
+            return data, 201
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
     
     @marshal_with(resource_fields)
     def patch(self, time):
-        args = sensor_update_args.parse_args()
+        try:
+            args = sensor_update_args.parse_args()
 
-        # check whether the timestamp exist or not
-        result = SensorDataModel.query.filter_by(timestamp=time).first()
-        if not result:
-            abort(404, message='Timestamp not found')
-        
-        if args['temp']:
-            result.temperature = args['temp']
-        if args['humid']:
-            result.humidity = args['humid']
+            # check whether the timestamp exist or not
+            result = SensorDataModel.query.filter_by(timestamp=time).first()
+            if not result:
+                abort(404, message='Timestamp not found')
+            
+            if args['temp']:
+                result.temperature = float(args['temp'])
+            if args['humid']:
+                result.humidity = float(args['humid'])
 
-        db.session.commit()
+            db.session.commit()
 
-        return result, 201
+            return result, 201
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
     
     @app.route('/datatable', methods=['GET'])
     def get_data_table():
