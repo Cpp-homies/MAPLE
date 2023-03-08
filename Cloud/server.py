@@ -11,13 +11,13 @@ db = SQLAlchemy(app)
 # create the schema for the student
 class SensorDataModel(db.Model):
     timestamp = db.Column(db.String(20), primary_key=True)
-    temperature = db.Column(db.Integer, nullable=False)
-    humidity = db.Column(db.Integer, nullable=False)
+    temperature = db.Column(db.Float, nullable=False)
+    humidity = db.Column(db.Float, nullable=False)
 
     def __repr__(self):
         return f"Data(time={self.timestamp}, temp={self.temperature}, humid={self.humidity})"
     
-db.create_all()
+# db.create_all()
 
 # argument parser for put
 sensor_put_args = reqparse.RequestParser()
@@ -33,8 +33,8 @@ sensor_update_args.add_argument('humid', type=str, help='Humidity not specified'
 # fields for serialization
 resource_fields = {
     'timestamp': fields.String,
-    'temperature': fields.Integer,
-    'humidity':fields.Integer
+    'temperature': fields.Float,
+    'humidity':fields.Float
 }
 
 # test resource
@@ -106,4 +106,4 @@ api.add_resource(SensorData, "/sensordata/<string:time>")
 
 
 if __name__ == "__main__":
-    app.run("")
+    app.run(host='0.0.0.0',port='8001')
