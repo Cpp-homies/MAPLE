@@ -6,39 +6,37 @@
 
 unsigned long previousMillis = 0;
 const long interval = 10000;
+String BASE_URL = "https://cloud.kovanen.io/sensordata/";
 
-void setup() {
-  Serial.begin(115200);
-  WiFi.begin("aalto open", "");
+int connectWifi(String BSSID, String password) {
+  WiFi.begin(BSSID.c_str(), password.c_str());
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     Serial.println("Connecting to WiFi...");
   }
   Serial.println("Connected to WiFi");
-  configTime(0, 0, "pool.ntp.org");
+
+  return 1;
 }
 
-void loop() {
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
-
-    // Create a JSON payload with the temperature and humidity values
+void sendData(float temp, float airHumid) {
+  // Create a JSON payload with the temperature and humidity values
     StaticJsonDocument<128> jsonPayload;
-    jsonPayload["temp"] = 25;
-    jsonPayload["humid"] = 50;
+    jsonPayload["temp"] = temp;
+    jsonPayload["humid"] = airHumid;
 
     // Serialize the JSON payload to a string
     String payloadString;
     serializeJson(jsonPayload, payloadString);
 
-    char address[100] = "http://10.100.41.65:5000/sensordata/";
+    String address = BASE_URL;
     char timeStr[20];
     time_t now = time(nullptr);
     struct tm* timeinfo = localtime(&now);
     strftime(timeStr, sizeof(address), "%Y_%m_%d_%H_%M_%S", timeinfo);
     
-    strcat(address, timeStr);
+    String timeStr_String = String(timeStr);
+    address = address + timeStr_String;
     HTTPClient http;
     http.begin(address);
 
@@ -56,5 +54,19 @@ void loop() {
       Serial.println(httpResponseCode);
     }
     http.end();
+}
+
+void setup() {
+  Serial.begin(115200);
+  connectWifi("aalto open", "");
+  configTime(0, 0, "pool.ntp.org");
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    sendData(10, 20);
+    
   }
 }

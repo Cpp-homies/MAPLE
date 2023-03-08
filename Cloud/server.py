@@ -106,4 +106,4 @@ api.add_resource(SensorData, "/sensordata/<string:time>")
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run("")
