@@ -20,6 +20,12 @@
 #include <ArduinoJson.h>
 #include <time.h>
 #include <string.h>
+// File System Library
+#include <FS.h>
+// SPI Flash Syetem Library
+#include <SPIFFS.h>
+// WiFiManager Library
+#include <WiFiManager.h>
 
 
 
@@ -46,9 +52,25 @@ unsigned long previousMillis = 0;
 const long interval = 10000;
 String BASE_URL = "https://cloud.kovanen.io/sensordata/";
 
+
+#define ESP_DRD_USE_SPIFFS true
+// JSON configuration file
+#define JSON_CONFIG_FILE "/config.json"
+ 
+// Flag for saving config data
+bool shouldSaveConfig = false;
+ 
+// Variables to hold data from custom textboxes
+char usernameString[50] = "Username";
+char passwordString[50] = "Password";
+ 
+// Define WiFiManager Object
+WiFiManager wm;
+
+
 void setup() {
   Serial.begin(115200);
-
+  delay(10);
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;);
@@ -79,8 +101,182 @@ void setup() {
   display.clearDisplay();
   display.setTextColor(WHITE);
 
-  connectWifi("Stanley's toilet", "81053851414");
+  //connectWifi("Stanley's toilet", "81053851414");
+
+  // Change to true when testing to force configuration every time we run
+  bool forceConfig = false;
+  bool spiffsSetup = loadConfigFile();
+  if (!spiffsSetup)
+  {
+    Serial.println(F("Forcing config mode as there is no saved config"));
+    forceConfig = true;
+  }
+  // Explicitly set WiFi mode
+  WiFi.mode(WIFI_STA);
+ 
+  // Reset settings (only for development)
+  wm.resetSettings();
+ 
+  // Set config save notify callback
+  wm.setSaveConfigCallback(saveConfigCallback);
+ 
+  // Set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wm.setAPCallback(configModeCallback);
+ 
+  // Custom elements
+ 
+  // Text box (String) - 50 characters maximum
+  WiFiManagerParameter custom_text_box_username("key_username", "Enter your M.A.P.L.E. username", usernameString, 50);
+    
+  // Text box (String) - 50 characters maximum
+  WiFiManagerParameter custom_text_box_password("key_password", "Enter your M.A.P.L.E. password here", passwordString, 50); 
+ 
+  // Add all defined parameters
+  wm.addParameter(&custom_text_box_username);
+  wm.addParameter(&custom_text_box_password);
+ 
+  if (forceConfig)
+    // Run if we need a configuration
+  {
+    if (!wm.startConfigPortal("M.A.P.L.E.", "homies"))
+    {
+      Serial.println("failed to connect and hit timeout");
+      delay(3000);
+      //reset and try again, or maybe put it to deep sleep
+      ESP.restart();
+      delay(5000);
+    }
+  }
+  else
+  {
+    if (!wm.autoConnect("M.A.P.L.E.", "homies"))
+    {
+      Serial.println("failed to connect and hit timeout");
+      delay(3000);
+      // if we still have not connected restart and try all over again
+      ESP.restart();
+      delay(5000);
+    }
+  }
+ 
+  // If we get here, we are connected to the WiFi
+ 
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+ 
+  // Lets deal with the user config values
+ 
+  // Copy the string value
+  strncpy(usernameString, custom_text_box_username.getValue(), sizeof(usernameString));
+  Serial.print("usernameString: ");
+  Serial.println(usernameString);
+ 
+  //Convert the number value
+  strncpy(passwordString, custom_text_box_password.getValue(), sizeof(passwordString));
+  Serial.print("passwordString: ");
+  Serial.println(passwordString);
+ 
+ 
+  // Save the custom parameters to FS
+  if (shouldSaveConfig)
+  {
+    saveConfigFile();
+  }
+
   configTime(0, 0, "pool.ntp.org");
+}
+
+// Save Config in JSON format
+void saveConfigFile(){
+  Serial.println(F("Saving configuration..."));
+  
+  // Create a JSON document
+  StaticJsonDocument<512> json;
+  json["usernameString"] = usernameString;
+  json["passwordNumber"] = passwordString;
+ 
+  // Open config file
+  File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
+  if (!configFile)
+  {
+    // Error, file did not open
+    Serial.println("failed to open config file for writing");
+  }
+ 
+  // Serialize JSON data to write to file
+  serializeJsonPretty(json, Serial);
+  if (serializeJson(json, configFile) == 0)
+  {
+    // Error writing file
+    Serial.println(F("Failed to write to file"));
+  }
+  // Close file
+  configFile.close();
+}
+// Load existing configuration file
+bool loadConfigFile(){
+  // Uncomment if we need to format filesystem
+  // SPIFFS.format();
+ 
+  // Read configuration from FS json
+  Serial.println("Mounting File System...");
+ 
+  // May need to make it begin(true) first time you are using SPIFFS
+  if (SPIFFS.begin(false) || SPIFFS.begin(true))
+  {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists(JSON_CONFIG_FILE))
+    {
+      // The file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open(JSON_CONFIG_FILE, "r");
+      if (configFile)
+      {
+        Serial.println("Opened configuration file");
+        StaticJsonDocument<512> json;
+        DeserializationError error = deserializeJson(json, configFile);
+        serializeJsonPretty(json, Serial);
+        if (!error)
+        {
+          Serial.println("Parsing JSON");
+ 
+          strcpy(usernameString, json["usernameString"]);
+          strcpy(passwordString, json["passwordString"]);
+ 
+          return true;
+        }
+        else
+        {
+          // Error loading JSON data
+          Serial.println("Failed to load json config");
+        }
+      }
+    }
+  }
+  else
+  {
+    // Error mounting file system
+    Serial.println("Failed to mount FS");
+  }
+ 
+  return false;
+}
+// Callback notifying us of the need to save configuration
+void saveConfigCallback(){
+  Serial.println("Should save config");
+  shouldSaveConfig = true;
+}
+// Called when config mode launched 
+void configModeCallback(WiFiManager *myWiFiManager){
+  Serial.println("Entered Configuration Mode");
+ 
+  Serial.print("Config SSID: ");
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+ 
+  Serial.print("Config IP Address: ");
+  Serial.println(WiFi.softAPIP());
 }
 
 void displayTempHumidity(){
