@@ -47,10 +47,11 @@ int PUMP_POWER = 27;
 int freq = 2000;
 int pwmResolution = 8;
 int pwmChannel_0 = 0;
-int pwmChannel_1 = 2;
+int pwmChannel_2 = 2;
 uint8_t brightness;
 int pumpSpeed = 1500;
-int fanSpeed = 200; //0-255
+int fanSpeed = 190; //190-255
+bool fanOn = false;
 
 unsigned long previousMillis = 0;
 const long interval = 10000;
@@ -98,103 +99,22 @@ void setup() {
 
   // configure LED PWM functionalitites
   ledcSetup(pwmChannel_0, freq, pwmResolution);
-  ledcSetup(pwmChannel_1, freq, pwmResolution);
+  ledcSetup(pwmChannel_2, freq, pwmResolution);
 
   
   // attach the channel to the GPIO to be controlled
   ledcAttachPin(LIGHTS, pwmChannel_0);
-  ledcAttachPin(FAN, pwmChannel_1);
-  ledcWrite(pwmChannel_1, fanSpeed);
+  ledcAttachPin(FAN, pwmChannel_2);
+  
   
   delay(2000);
   display.clearDisplay();
   display.setTextColor(WHITE);
 
-  //connectWifi("Stanley's toilet", "81053851414");
-
-  // Change to true when testing to force configuration every time we run
-  bool forceConfig = false;
-  bool spiffsSetup = loadConfigFile();
-  if (!spiffsSetup)
-  {
-    Serial.println("Forcing config mode as there is no saved config");
-    forceConfig = true;
-  }
-  // Explicitly set WiFi mode
-  WiFi.mode(WIFI_STA);
- 
-  // Reset settings (only for development)
-  //wm.resetSettings();
- 
-  // Set config save notify callback
-  wm.setSaveConfigCallback(saveConfigCallback);
- 
-  // Set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
-  wm.setAPCallback(configModeCallback);
- 
-  // Custom elements
- 
-  // Text box (String) - 50 characters maximum
-  WiFiManagerParameter custom_text_box_username("key_username", "Enter your M.A.P.L.E. username", usernameString, 50);
-    
-  // Text box (String) - 50 characters maximum
-  WiFiManagerParameter custom_text_box_password("key_password", "Enter your M.A.P.L.E. password here", passwordString, 50); 
- 
-  // Add all defined parameters
-  wm.addParameter(&custom_text_box_username);
-  wm.addParameter(&custom_text_box_password);
- 
-  if (forceConfig)
-    // Run if we need a configuration
-  {
-    if (!wm.startConfigPortal("M.A.P.L.E.", "homeworkhomies"))
-    {
-      Serial.println("failed to connect and hit timeout");
-      delay(3000);
-      //reset and try again, or maybe put it to deep sleep
-      ESP.restart();
-      delay(5000);
-    }
-  }
-  else
-  {
-    if (!wm.autoConnect("M.A.P.L.E.", "homeworkhomies"))
-    {
-      Serial.println("failed to connect and hit timeout");
-      delay(3000);
-      // if we still have not connected restart and try all over again
-      ESP.restart();
-      delay(5000);
-    }
-  }
- 
-  // If we get here, we are connected to the WiFi
- 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
- 
-  // Lets deal with the user config values
- 
-  // Copy the string value
-  strncpy(usernameString, custom_text_box_username.getValue(), sizeof(usernameString));
-  Serial.print("usernameString: ");
-  Serial.println(usernameString);
- 
-  //Convert the number value
-  strncpy(passwordString, custom_text_box_password.getValue(), sizeof(passwordString));
-  Serial.print("passwordString: ");
-  Serial.println(passwordString);
- 
- 
-  // Save the custom parameters to FS
-  if (shouldSaveConfig)
-  {
-    saveConfigFile();
-  }
-
-  configTime(0, 0, "pool.ntp.org");
+  configWifi();
+  Serial.println(map(fanSpeed,0,100,0,255));
+  
+  
 }
 
 // Save Config in JSON format
@@ -288,6 +208,92 @@ void configModeCallback(WiFiManager *myWiFiManager){
   Serial.println(WiFi.softAPIP());
 }
 
+void configWifi() {
+  // Change to true when testing to force configuration every time we run
+  bool forceConfig = false;
+  bool spiffsSetup = loadConfigFile();
+  if (!spiffsSetup)
+  {
+    Serial.println("Forcing config mode as there is no saved config");
+    forceConfig = true;
+  }
+  // Explicitly set WiFi mode
+  WiFi.mode(WIFI_STA);
+ 
+  // Reset settings (only for development)
+  //wm.resetSettings();
+ 
+  // Set config save notify callback
+  wm.setSaveConfigCallback(saveConfigCallback);
+ 
+  // Set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wm.setAPCallback(configModeCallback);
+ 
+  // Custom elements
+ 
+  // Text box (String) - 50 characters maximum
+  WiFiManagerParameter custom_text_box_username("key_username", "Enter your M.A.P.L.E. username", usernameString, 50);
+    
+  // Text box (String) - 50 characters maximum
+  WiFiManagerParameter custom_text_box_password("key_password", "Enter your M.A.P.L.E. password here", passwordString, 50); 
+ 
+  // Add all defined parameters
+  wm.addParameter(&custom_text_box_username);
+  wm.addParameter(&custom_text_box_password);
+ 
+  if (forceConfig)
+    // Run if we need a configuration
+  {
+    if (!wm.startConfigPortal("M.A.P.L.E.", "homeworkhomies"))
+    {
+      Serial.println("failed to connect and hit timeout");
+      delay(3000);
+      //reset and try again, or maybe put it to deep sleep
+      ESP.restart();
+      delay(5000);
+    }
+  }
+  else
+  {
+    if (!wm.autoConnect("M.A.P.L.E.", "homeworkhomies"))
+    {
+      Serial.println("failed to connect and hit timeout");
+      delay(3000);
+      // if we still have not connected restart and try all over again
+      ESP.restart();
+      delay(5000);
+    }
+  }
+ 
+  // If we get here, we are connected to the WiFi
+ 
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+ 
+  // Lets deal with the user config values
+ 
+  // Copy the string value
+  strncpy(usernameString, custom_text_box_username.getValue(), sizeof(usernameString));
+  Serial.print("usernameString: ");
+  Serial.println(usernameString);
+ 
+  //Convert the number value
+  strncpy(passwordString, custom_text_box_password.getValue(), sizeof(passwordString));
+  Serial.print("passwordString: ");
+  Serial.println(passwordString);
+ 
+ 
+  // Save the custom parameters to FS
+  if (shouldSaveConfig)
+  {
+    saveConfigFile();
+  }
+
+  configTime(0, 0, "pool.ntp.org");
+}
+
 void displayTempHumidity(){
   display.clearDisplay();
   // display temperature
@@ -329,16 +335,7 @@ void displayLightIntensity(){
   display.display();
 }
 
-int connectWifi(String BSSID, String password) {
-  WiFi.begin(BSSID.c_str(), password.c_str());
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
-  Serial.println("Connected to WiFi");
 
-  return 1;
-}
 
 void sendData(float temp, float airHumid) {
   // Create a JSON payload with the temperature and humidity values
@@ -368,6 +365,7 @@ void sendData(float temp, float airHumid) {
     int httpResponseCode = http.PUT(payloadString);
     if (httpResponseCode > 0) {
       String response = http.getString();
+      Serial.println("Sent request:");
       Serial.println(response);
     } else {
       String response = http.getString();
@@ -420,6 +418,22 @@ void pumpWater(){
   digitalWrite(PUMP_POWER,LOW);
 }
 
+
+void checkAirHumidity(){
+  
+  if(bme.readHumidity()>50.0){
+    if(!fanOn){
+      ledcWrite(pwmChannel_2, fanSpeed);
+      fanOn = true;      
+    } 
+  } else {
+    if(fanOn) {
+      ledcWrite(pwmChannel_2, 0);
+      fanOn = false;
+    }
+  }
+}
+
 void loop() {
   
   displayTempHumidity();
@@ -430,8 +444,7 @@ void loop() {
   }
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    sendData(bme.readTemperature(), bme.readHumidity());
-    
+    sendData(bme.readTemperature(), bme.readHumidity());    
   }
-  
+  checkAirHumidity();
 }
