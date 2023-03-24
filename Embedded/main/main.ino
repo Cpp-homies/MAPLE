@@ -1,13 +1,4 @@
-/*
-  Rui Santos
-  Complete project details at https://RandomNerdTutorials.com/esp32-i2c-communication-arduino-ide/
-  
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files.
-  
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-*/
+
 
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -37,16 +28,29 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 Adafruit_BME280 bme;
 
 int LIGHT_SENSOR = 34;
+
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+
 int SOIL_SENSOR = 35;
 const int DIR = 12;
 const int STEP = 14;
 int LIGHTS = 23;
+int FAN = 5;
 int PUMP_POWER = 27;
 int freq = 2000;
 int pwmResolution = 8;
 int pwmChannel_0 = 0;
+int pwmChannel_1 = 2;
 uint8_t brightness;
 int pumpSpeed = 1500;
+int fanSpeed = 200; //0-255
 
 unsigned long previousMillis = 0;
 const long interval = 10000;
@@ -55,7 +59,7 @@ String BASE_URL = "https://cloud.kovanen.io/sensordata/";
 
 #define ESP_DRD_USE_SPIFFS true
 // JSON configuration file
-#define JSON_CONFIG_FILE "/config.json"
+#define JSON_CONFIG_FILE "/config_maple_user.json"
  
 // Flag for saving config data
 bool shouldSaveConfig = false;
@@ -85,6 +89,7 @@ void setup() {
   analogReadResolution(12);
 
   pinMode(LIGHTS,OUTPUT);
+  pinMode(FAN,OUTPUT);
   pinMode(PUMP_POWER,OUTPUT);
   pinMode(STEP, OUTPUT);
   pinMode(DIR, OUTPUT);
@@ -93,10 +98,14 @@ void setup() {
 
   // configure LED PWM functionalitites
   ledcSetup(pwmChannel_0, freq, pwmResolution);
+  ledcSetup(pwmChannel_1, freq, pwmResolution);
+
   
   // attach the channel to the GPIO to be controlled
   ledcAttachPin(LIGHTS, pwmChannel_0);
-
+  ledcAttachPin(FAN, pwmChannel_1);
+  ledcWrite(pwmChannel_1, fanSpeed);
+  
   delay(2000);
   display.clearDisplay();
   display.setTextColor(WHITE);
@@ -108,14 +117,14 @@ void setup() {
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
   {
-    Serial.println(F("Forcing config mode as there is no saved config"));
+    Serial.println("Forcing config mode as there is no saved config");
     forceConfig = true;
   }
   // Explicitly set WiFi mode
   WiFi.mode(WIFI_STA);
  
   // Reset settings (only for development)
-  wm.resetSettings();
+  //wm.resetSettings();
  
   // Set config save notify callback
   wm.setSaveConfigCallback(saveConfigCallback);
@@ -138,7 +147,7 @@ void setup() {
   if (forceConfig)
     // Run if we need a configuration
   {
-    if (!wm.startConfigPortal("M.A.P.L.E.", "homies"))
+    if (!wm.startConfigPortal("M.A.P.L.E.", "homeworkhomies"))
     {
       Serial.println("failed to connect and hit timeout");
       delay(3000);
@@ -149,7 +158,7 @@ void setup() {
   }
   else
   {
-    if (!wm.autoConnect("M.A.P.L.E.", "homies"))
+    if (!wm.autoConnect("M.A.P.L.E.", "homeworkhomies"))
     {
       Serial.println("failed to connect and hit timeout");
       delay(3000);
@@ -195,7 +204,7 @@ void saveConfigFile(){
   // Create a JSON document
   StaticJsonDocument<512> json;
   json["usernameString"] = usernameString;
-  json["passwordNumber"] = passwordString;
+  json["passwordString"] = passwordString;
  
   // Open config file
   File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -244,7 +253,7 @@ bool loadConfigFile(){
  
           strcpy(usernameString, json["usernameString"]);
           strcpy(passwordString, json["passwordString"]);
- 
+          Serial.println("Finished parsing JSON");          
           return true;
         }
         else
@@ -401,8 +410,8 @@ void pumpWater(){
   digitalWrite(PUMP_POWER,HIGH);
   digitalWrite(DIR, HIGH);
   while(needsWater()){
-    displayTempHumidity();
-    adjustLights();
+    //displayTempHumidity();
+    //adjustLights();
     digitalWrite(STEP, HIGH);
     delayMicroseconds(pumpSpeed);
     digitalWrite(STEP, LOW);
