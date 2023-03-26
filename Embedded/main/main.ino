@@ -78,7 +78,7 @@ WiFiManager wm;
 
 void setup() {
   Serial.begin(115200);
-  delay(10);
+  while(!Serial){}
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;);
@@ -303,7 +303,7 @@ void initSDcard(){
 
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
     Serial.printf("SD Card Size: %lluMB\n", cardSize);
-
+    /*
     listDir(SD, "/", 0);
     createDir(SD, "/mydir");
     listDir(SD, "/", 0);
@@ -318,6 +318,7 @@ void initSDcard(){
     testFileIO(SD, "/test.txt");
     Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
     Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
+    */
 }
 // Save Config in JSON format
 void saveConfigFile(){
@@ -352,30 +353,30 @@ bool loadConfigFile(){
   // SPIFFS.format();
  
   // Read configuration from FS json
-  Serial.println("Mounting File System...");
+  //Serial.println("Mounting File System...");
  
   // May need to make it begin(true) first time you are using SPIFFS
   if (SPIFFS.begin(false) || SPIFFS.begin(true))
   {
-    Serial.println("mounted file system");
+    //Serial.println("mounted file system");
     if (SPIFFS.exists(JSON_CONFIG_FILE))
     {
       // The file exists, reading and loading
-      Serial.println("reading config file");
+      //Serial.println("reading config file");
       File configFile = SPIFFS.open(JSON_CONFIG_FILE, "r");
       if (configFile)
       {
-        Serial.println("Opened configuration file");
+        //Serial.println("Opened configuration file");
         StaticJsonDocument<512> json;
         DeserializationError error = deserializeJson(json, configFile);
-        serializeJsonPretty(json, Serial);
+        //serializeJsonPretty(json, Serial);
         if (!error)
         {
-          Serial.println("Parsing JSON");
+          //Serial.println("Parsing JSON");
  
           strcpy(usernameString, json["usernameString"]);
           strcpy(passwordString, json["passwordString"]);
-          Serial.println("Finished parsing JSON");          
+          //Serial.println("Finished parsing JSON");          
           return true;
         }
         else
@@ -416,7 +417,7 @@ void configWifi() {
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
   {
-    Serial.println("Forcing config mode as there is no saved config");
+    //Serial.println("Forcing config mode as there is no saved config");
     forceConfig = true;
   }
   // Explicitly set WiFi mode
@@ -469,23 +470,28 @@ void configWifi() {
  
   // If we get here, we are connected to the WiFi
  
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  //Serial.println("");
+  //Serial.println("WiFi connected");
+  //Serial.print("IP address: ");
+  //Serial.println(WiFi.localIP());
  
   // Lets deal with the user config values
  
   // Copy the string value
   strncpy(usernameString, custom_text_box_username.getValue(), sizeof(usernameString));
-  Serial.print("usernameString: ");
-  Serial.println(usernameString);
+  //Serial.print("usernameString: ");
+  //Serial.println(usernameString);
  
   //Convert the number value
   strncpy(passwordString, custom_text_box_password.getValue(), sizeof(passwordString));
-  Serial.print("passwordString: ");
-  Serial.println(passwordString);
- 
+  //Serial.print("passwordString: ");
+  //Serial.println(passwordString);
+  delay(5000);
+  Serial.println(0);
+  delay(5000);
+  Serial.println(wm.getWiFiSSID());
+  delay(5000);
+  Serial.println(wm.getWiFiPass());
  
   // Save the custom parameters to FS
   if (shouldSaveConfig)
