@@ -2,6 +2,9 @@ from flask import Flask, jsonify
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, fields
 from flask_sqlalchemy import SQLAlchemy
 
+# Define HOST and PORT
+HOST = 'localhost'
+PORT = 8001
 
 app = Flask(__name__)
 api = Api(app)
@@ -131,4 +134,4 @@ api.add_resource(SensorData, "/sensordata/<string:time>")
 
 
 if __name__ == "__main__":
-    app.run(host='localhost',port='8001')
+    app.run(host=HOST,port=PORT)
