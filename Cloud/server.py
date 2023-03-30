@@ -3,7 +3,7 @@ from flask_restful import Api, Resource, reqparse, abort, marshal_with, fields
 from flask_sqlalchemy import SQLAlchemy
 
 # Define HOST and PORT
-HOST = 'localhost'
+HOST = '0.0.0.0'
 PORT = 8001
 
 app = Flask(__name__)

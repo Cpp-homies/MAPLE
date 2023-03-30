@@ -33,7 +33,7 @@ void sendData(float temp, float airHumid) {
     char timeStr[20];
     time_t now = time(nullptr);
     struct tm* timeinfo = localtime(&now);
-strftime(timeStr, sizeof(address), "%Y_%m_%d_%H_%M_%S", timeinfo);
+    strftime(timeStr, sizeof(timeStr), "%Y_%m_%d_%H_%M_%S", timeinfo);
     
     String timeStr_String = String(timeStr);
     address = address + timeStr_String;
