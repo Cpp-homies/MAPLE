@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+# from celery import Celery
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, fields
 from flask_sqlalchemy import SQLAlchemy
 from enum import Enum
@@ -56,12 +57,12 @@ resource_fields = {
 
 # Some data for sending requests to the ESP
 esp_reqs = [] # A queue of requests to send to the ESP
-esp_req_served = False
-esp_req_timeout = 5 # Maximum time to wait for the ESP response (in seconds)
+esp_req_timeout = 10 # Maximum time to wait for the ESP response (in seconds)
 
 # test resource
 class SensorData(Resource):
     live_data = {} # A buffer to hold live data from the device
+    esp_req_served = [] # Flag to inform when the most recent request was served by the ESP
 
     # test get function that return a dictionary with "Hello World":"Hello"
     @marshal_with(resource_fields)
@@ -70,12 +71,11 @@ class SensorData(Resource):
         if timestamp == "live":
             # Add the request to the request list for the ESP
             esp_reqs.append({"type":ESP_Req_Code.LIVE_DATA.value})
-            esp_req_served = False
 
             start_time = time.time()
             cur_time = start_time
             # Wait for the ESP's response
-            while (not esp_req_served) and (cur_time - start_time) < esp_req_timeout:
+            while (self.esp_req_served == []) and (cur_time - start_time) < esp_req_timeout:
                 cur_time = time.time() # advance cur_time
                 # do nothing
 
@@ -85,6 +85,10 @@ class SensorData(Resource):
                 print("[INFO] Request to ESP timeout")
                 abort(408, message="Request timeout - no response received from the ESP")
             else:
+                print(self.esp_req_served)
+                del self.esp_req_served[:] # reset the flag
+                
+                print(self.live_data)
                 return self.live_data
 
 
@@ -100,8 +104,13 @@ class SensorData(Resource):
         try:
             if timestamp == "live":
                 args = sensor_live_put_args.parse_args()
-                self.live_data = {'timestamp': args['time'], "temp": args['temp'], "humid": args["humid"]}
-                esp_req_served = True
+
+                # Add the data to the dictionary reference
+                self.live_data["timestamp"] = args['time']
+                self.live_data["temperature"] = float(args["temp"])
+                self.live_data["humidity"] = float(args["humid"])
+                
+                self.esp_req_served.append(True)
 
                 return self.live_data, 201
             
@@ -192,4 +201,4 @@ api.add_resource(SensorData, "/sensordata/<string:timestamp>")
 
 
 if __name__ == "__main__":
-    app.run(host=HOST,port=PORT)
+    app.run(host=HOST,port=PORT, threaded=True)
