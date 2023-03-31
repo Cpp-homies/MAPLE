@@ -1,10 +1,18 @@
 from flask import Flask, jsonify
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, fields
 from flask_sqlalchemy import SQLAlchemy
+from enum import Enum
+import time
 
 # Define HOST and PORT
 HOST = '0.0.0.0'
 PORT = 8001
+
+# An enum to use as a shorthand for the request codes for ESP requests
+class ESP_Req_Code(Enum):
+    NO_REQ = 0
+    LIVE_DATA = 1
+
 
 app = Flask(__name__)
 api = Api(app)
@@ -27,6 +35,12 @@ sensor_put_args = reqparse.RequestParser()
 sensor_put_args.add_argument('temp', type=str, help='Temperature not specified', required=True)
 sensor_put_args.add_argument('humid', type=str, help='Humidity not specified', required=True)
 
+# argument parser for "live data" put
+sensor_live_put_args = reqparse.RequestParser()
+sensor_live_put_args.add_argument('time', type=str, help='Timestamp not specified', required=True)
+sensor_live_put_args.add_argument('temp', type=str, help='Temperature not specified', required=True)
+sensor_live_put_args.add_argument('humid', type=str, help='Humidity not specified', required=True)
+
 # argument parser for update
 sensor_update_args = reqparse.RequestParser()
 sensor_update_args.add_argument('temp', type=str, help='Temperature not specified', required=False)
@@ -40,32 +54,67 @@ resource_fields = {
     'humidity':fields.Float
 }
 
+# Some data for sending requests to the ESP
+esp_reqs = [] # A queue of requests to send to the ESP
+esp_req_served = False
+esp_req_timeout = 5 # Maximum time to wait for the ESP response (in seconds)
+
 # test resource
 class SensorData(Resource):
+    live_data = {} # A buffer to hold live data from the device
+
     # test get function that return a dictionary with "Hello World":"Hello"
     @marshal_with(resource_fields)
-    def get(self, time):
+    def get(self, timestamp):
+        # Check if this is a request for live data or not
+        if timestamp == "live":
+            # Add the request to the request list for the ESP
+            esp_reqs.append({"type":ESP_Req_Code.LIVE_DATA.value})
+            esp_req_served = False
+
+            start_time = time.time()
+            cur_time = start_time
+            # Wait for the ESP's response
+            while (not esp_req_served) and (cur_time - start_time) < esp_req_timeout:
+                cur_time = time.time() # advance cur_time
+                # do nothing
+
+            
+            if (cur_time - start_time) >= esp_req_timeout:
+                # Inform the sender that the request has timed out
+                print("[INFO] Request to ESP timeout")
+                abort(408, message="Request timeout - no response received from the ESP")
+            else:
+                return self.live_data
+
+
         # query and return the data
-        result = SensorDataModel.query.filter_by(timestamp=time).first()
+        result = SensorDataModel.query.filter_by(timestamp=timestamp).first()
         # print("Received GET request for timestamp " + time)
         if not result:
             abort(404, message="Timestamp not found")
         return result
     
     @marshal_with(resource_fields)
-    def put(self, time):
+    def put(self, timestamp):
         try:
-            args = sensor_put_args.parse_args()
+            if timestamp == "live":
+                args = sensor_live_put_args.parse_args()
+                self.live_data = {'timestamp': args['time'], "temp": args['temp'], "humid": args["humid"]}
+                esp_req_served = True
+
+                return self.live_data, 201
             
+            args = sensor_put_args.parse_args()
             # check whether the timestamp is taken or not
-            result = SensorDataModel.query.filter_by(timestamp=time).first()
+            result = SensorDataModel.query.filter_by(timestamp=timestamp).first()
             # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
             #       + args['humid'] + '}')
             if result:
                 abort(409, message='Timestamp already exist')
 
-            # create a student object and add it to the session
-            data = SensorDataModel(timestamp=time, temperature=float(args['temp']), humidity=float(args['humid']))
+            # create a SensorDataModel object and add it to the session
+            data = SensorDataModel(timestamp=timestamp, temperature=float(args['temp']), humidity=float(args['humid']))
             db.session.add(data)
             db.session.commit()
             return data, 201
@@ -74,12 +123,12 @@ class SensorData(Resource):
             abort(400, message="Invalid arguments")
     
     @marshal_with(resource_fields)
-    def patch(self, time):
+    def patch(self, timestamp):
         try:
             args = sensor_update_args.parse_args()
 
             # check whether the timestamp exist or not
-            result = SensorDataModel.query.filter_by(timestamp=time).first()
+            result = SensorDataModel.query.filter_by(timestamp=timestamp).first()
             if not result:
                 abort(404, message='Timestamp not found')
             
@@ -112,6 +161,15 @@ class SensorData(Resource):
 
         # Return the list of data rows as a JSON response
         return jsonify(data_list)
+    
+    # GET method to get the next request for the ESP to execute
+    @app.route('/request-to-esp', methods=['GET'])
+    def get_esp_request():
+        if esp_reqs:
+            return esp_reqs.pop()
+        return {"type": ESP_Req_Code.NO_REQ.value}
+        
+
     # @marshal_with(resource_fields)    
     # def delete(self, studentID):
     #     # check whether the student ID exist or not
@@ -130,7 +188,7 @@ class SensorData(Resource):
     # def post(self):
     #     return {'data':'Posted'}
  
-api.add_resource(SensorData, "/sensordata/<string:time>")
+api.add_resource(SensorData, "/sensordata/<string:timestamp>")
 
 
 if __name__ == "__main__":
