@@ -1,13 +1,17 @@
 :root {
     --LightColor1: rgb(213, 223, 211);
     --LightColor2: rgb(235, 255, 242);
-    --MediumLightColor1: rgb(110, 192, 99);
-    --MediumColor1: rgb(49, 151, 35);
-    --MediumDarkColor1: rgb(11, 97, 0);
-    --DarkColor1: rgb(6, 51, 0);
+    --MediumLightColor1: rgb(125, 211, 114);
+    --MediumColor1: rgb(116, 184, 107);
+    --MediumDarkColor1: rgb(63, 112, 57);
+    --DarkGrayColor1: rgb(51, 51, 51);
+    --DarkColor1: rgb(31, 61, 27);
     --DarkColor2: rgb(8, 8, 8);
     --DarkColor2T: rgba(8, 8, 8, 0.8);
-    --HighLightColor: rgb(255, 99, 71);
+    --HighLightColor1: rgb(255, 99, 71);
+    --HighLightColor2: rgb(0, 204, 255);
+
+    --Width: 1200px;
 }
 
 * {
@@ -27,7 +31,6 @@ html {
     font-weight: 400;
     color: white;
     background-color: var(--DarkColor2);
-    background-image: url(media/background-dalle-generated.webp);
     background-repeat: no-repeat;
     background-size: cover;
     background-attachment: fixed;
@@ -42,12 +45,17 @@ body{
 .main {
     margin: 0 auto;
     padding: 1rem;
-    max-width: 1195px;
+    max-width: 1200px;
 }
 
 header {
-    background-color: var(--MediumDarkColor1);
+    padding: 1rem;
+    background-color: var(--DarkColor1);
     color: var(--LightColor1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
 }
 
 header h1 {
@@ -60,9 +68,35 @@ header h2 {
     display: inline-block;
 }
 
+header .header-buttons {
+    text-align: right;
+    display: flexbox;
+}
+
+header .header-buttons p {
+    display: inline-block;
+    margin: 0;
+}
+
+.flex {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    float: right;
+}
+
+.header-text {
+    max-width: var(--Width);
+    width: 100%;
+    margin: 0 auto;
+    text-align: left;
+}
+
 .content {
     display: block;
     text-align: center;
+    max-width: 100%;
+    width: var(--Width);
 }
 
 h3 {
@@ -75,8 +109,8 @@ h3 {
     display: inline-block;
     vertical-align: top;
     overflow: hidden;
-    background-color: var(--MediumColor1);
-    border-radius: 2rem;
+    background-color: var(--DarkColor1);
+    border-radius: 5px;
     display: inline-flex;
     justify-content: center;
     align-items: center;
@@ -86,6 +120,88 @@ h3 {
     width: 170px;
     height: 170px;
 }
+
+.loading-content {
+    color: var(--DarkColor2);
+    background-color: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.loading-content .spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--MediumColor1);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.graph-container {
+    position: relative;
+    text-align: center;
+}
+
+.loading-popup {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    border-radius: 5px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+
+button#resetZoom {
+    background-color: var(--MediumDarkColor1);
+    color: var(--LightColor1);
+    font-size: 1rem;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+button#resetZoom:hover {
+    background-color: var(--MediumColor1);
+    color: var(--LightColor1);
+}
+
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    color: white;
+    border: none;
+    cursor: pointer;
+    padding: 0px 12px;
+}
+
+.icon-button:hover {
+    color: var(--HighLightColor1);
+}
+
+.icon-button .material-icons {
+    margin-right: 6px;
+}
+
 
 /* Mobile syles */
 @media screen and (max-width: 600px) {
