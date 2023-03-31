@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,900;1,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/webp" href="media/maple-logo-dalle-generated.webp">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/1.30.1/date_fns.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <title>MAPLE: Modular Automated Plant Life Enclosure</title>
+</head>
+<body>
+  <header>
+    <div class="header-text">
+      <h1>MAPLE:</h1>
+      <h2>Modular Automated Plant Life Enclosure</h2>
+      <p>Last App Sync: <span id="timestamp"></span></p>
+    </div>
+  </header>
+  <div class="main">
+
+    <div class="content">
+
+      <div class="block-small block">
+        <div class="block-content">
+          <div class="block-title">
+            <h3>
+              Air humidity:
+            </h3>
+          </div>
+          <div>
+            <span id="air-humidity">0</span>%
+          </div>
+        </div>
+      </div>
+
+      <div class="block-small block">
+        <div class="block-content">
+          <div class="block-title">
+            <h3>
+              Air temperature:
+            </h3>
+          </div>
+          <div class="value">
+            <span id="air-temp">0</span>°C
+          </div>
+        </div>
+      </div>
+
+    </div>    
+    <canvas id="temperatureChart"></canvas>
+
+  </div>
+</body>
+
+<script id="dynamicScript"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const scriptTag = document.getElementById('dynamicScript');
+    const scriptUrl = `scripts.js?t=${new Date().getTime()}`;
+    scriptTag.src = scriptUrl;
+  });
+</script>
+</html>

@@ -1,0 +1,23 @@
+{
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "name": "mapleapp",
+  "version": "1.0.0",
+  "description": "Front end for the MAPLE project",
+  "main": "server.js",
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cpp-homies/MAPLE.git"
+  },
+  "author": "Saku Kovanen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Cpp-homies/MAPLE/issues"
+  },
+  "homepage": "https://github.com/Cpp-homies/MAPLE#readme"
+}
