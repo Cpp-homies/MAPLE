@@ -4,6 +4,7 @@ from flask_restful import Api, Resource, reqparse, abort, marshal_with, fields
 from flask_sqlalchemy import SQLAlchemy
 from enum import Enum
 import time
+import asyncio
 
 # Define HOST and PORT
 HOST = '0.0.0.0'
@@ -59,46 +60,63 @@ resource_fields = {
 esp_reqs = [] # A queue of requests to send to the ESP
 esp_req_timeout = 10 # Maximum time to wait for the ESP response (in seconds)
 
+# helper function that wait until a certain external condition (list type) turns true,
+# or until some timeout interval has been reached
+def wait_until(cond, timeout):
+    start_time = time.time()
+    cur_time = start_time
+    while (cond == []) and (cur_time - start_time) < timeout:
+        cur_time = time.time() # advance cur_time
+        # do nothing
+
+    # if timeout was reach, return False
+    if (cur_time - start_time) >= esp_req_timeout:
+        return False
+    return True
+
 # test resource
 class SensorData(Resource):
     live_data = {} # A buffer to hold live data from the device
     esp_req_served = [] # Flag to inform when the most recent request was served by the ESP
 
-    # test get function that return a dictionary with "Hello World":"Hello"
+    # test get function that return a dictionary with "timestamp", "temperature", and "humidity"
     @marshal_with(resource_fields)
     def get(self, timestamp):
         # Check if this is a request for live data or not
         if timestamp == "live":
-            # Add the request to the request list for the ESP
-            esp_reqs.append({"type":ESP_Req_Code.LIVE_DATA.value})
-
-            start_time = time.time()
-            cur_time = start_time
-            # Wait for the ESP's response
-            while (self.esp_req_served == []) and (cur_time - start_time) < esp_req_timeout:
-                cur_time = time.time() # advance cur_time
-                # do nothing
-
-            
-            if (cur_time - start_time) >= esp_req_timeout:
+            # Ask the ESP to update the live data (function executed aynchronously in the background)
+            update_status = asyncio.run(self.update_live_data())
+            # print(update_status)
+            if not update_status:
                 # Inform the sender that the request has timed out
                 print("[INFO] Request to ESP timeout")
                 abort(408, message="Request timeout - no response received from the ESP")
             else:
-                print(self.esp_req_served)
                 del self.esp_req_served[:] # reset the flag
-                
                 print(self.live_data)
                 return self.live_data
 
-
-        # query and return the data
-        result = SensorDataModel.query.filter_by(timestamp=timestamp).first()
-        # print("Received GET request for timestamp " + time)
-        if not result:
-            abort(404, message="Timestamp not found")
-        return result
+        else:
+            # query and return the data
+            result = SensorDataModel.query.filter_by(timestamp=timestamp).first()
+            # print("Received GET request for timestamp " + time)
+            if not result:
+                abort(404, message="Timestamp not found")
+            return result
     
+    # update the live data from the ESP
+    async def update_live_data(self):
+         # Add the request to the pending request list for the ESP
+        esp_reqs.append({"type":ESP_Req_Code.LIVE_DATA.value})
+
+        # Wait until the ESP respond or timeout has been reached
+        req_succeed = wait_until(self.esp_req_served, esp_req_timeout)
+        if not req_succeed:
+            # Inform the sender that the request has timed out
+            return False
+        else:
+            return True
+        
     @marshal_with(resource_fields)
     def put(self, timestamp):
         try:
