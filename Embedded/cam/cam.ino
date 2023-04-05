@@ -44,6 +44,8 @@ String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
 // Stores the camera configuration parameters
 camera_config_t config;
 
+HardwareSerial SerialPort(2);
+
 // Initializes the camera
 void configInitCamera(){
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -91,7 +93,8 @@ void configInitCamera(){
 void  initWiFi(){
   bool connected = false;
   String ssid = "";
-  String psswd = "";
+  String pass = "";
+  bool psswd = false;
   while(!connected){
     if (Serial.available())
   {
@@ -110,21 +113,23 @@ void  initWiFi(){
           Serial.println(ssid);
         }
       }
-      while(psswd==""){
+      while(!psswd){
         if (Serial.available()){
-          psswd = Serial.readStringUntil('\n');
-          psswd.trim();
+          pass = Serial.readStringUntil('\n');
+          pass.trim();
           Serial.println("Got something:");
-          Serial.println(psswd);
+          Serial.println(pass);
+          psswd = true;          
         }
       }
-      WiFi.begin(ssid.c_str(), psswd.c_str());
+      WiFi.begin(ssid.c_str(), pass.c_str());
       Serial.println("Connecting Wifi");
       while (WiFi.status() != WL_CONNECTED) {
-      Serial.print(".");
-      delay(500);
+        Serial.print(".");
+        delay(500);
+        
+      }
       connected = true;
-  }
     }
     
   }
@@ -233,7 +238,8 @@ void setup() {
 
   Serial.begin(115200);
   while(!Serial){}
-
+  SerialPort.begin(115200, SERIAL_8N1, 16, 17);
+  while(!SerialPort){}
   // Initialize Wi-Fi
   initWiFi();
   // Initialize time with timezone

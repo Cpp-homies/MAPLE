@@ -20,7 +20,7 @@
 #include <WiFiManager.h>
 #include "SD.h"
 #include "SPI.h"
-
+#include <HardwareSerial.h>
 
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -33,6 +33,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 Adafruit_BME280 bme;
 
+HardwareSerial SerialPort(2); // use UART2
 
 
 #include <Wire.h>
@@ -150,6 +151,10 @@ void setup() {
   //r.enableSpeedup(true);
   //r.setSpeedupIncrement(15);
   //r.setSpeedupInterval(2500);
+
+  //camera communication
+  SerialPort.begin(115200, SERIAL_8N1, 16, 17);
+  while (!SerialPort){}
 }
 
 /////////////////////////////////////////////////////////////////
@@ -557,14 +562,22 @@ void configWifi() {
   strncpy(passwordString, custom_text_box_password.getValue(), sizeof(passwordString));
   Serial.print("passwordString: ");
   Serial.println(passwordString);
-  /*
-  delay(5000);
-  Serial.println(0);
-  delay(5000);
-  Serial.println(wm.getWiFiSSID());
-  delay(5000);
-  Serial.println(wm.getWiFiPass());
- */
+  
+  delay(3000);
+  SerialPort.println(0);
+  delay(3000);
+  SerialPort.println(wm.getWiFiSSID());
+  delay(3000);
+  String pass = wm.getWiFiPass();
+  Serial.print("Wifi password:");
+  Serial.println(pass);
+  if(pass==""){
+    SerialPort.println(" ");
+  }else{
+    SerialPort.println(pass);    
+  }
+  
+ 
   // Save the custom parameters to FS
   if (shouldSaveConfig)
   {
