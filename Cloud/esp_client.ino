@@ -6,9 +6,9 @@
 
 unsigned long previousMillis = 0;
 const long interval = 10000;
-// String BASE_URL = "https://cloud.kovanen.io/sensordata/";
+// String BASE_URL = "https://cloud.kovanen.io/";
 // String BASE_URL = "https://mapleplantapi.azurewebsites.net/";
-String BASE_URL = "http://10.100.20.54:8001/";
+String BASE_URL = "http://10.100.37.238:8001/";
 String WIFI_SSID = "aalto open";
 String WIFI_PASS = "";
 
@@ -85,11 +85,12 @@ void Listener( void * pvParameters ){
             *
             */
             int randTemp = random() % 40;
-            int randHumid = random() % 30;
+            int randAirHumid = random() % 30;
+            int randSoilHumid = random() % 100;
             /*
             ****************************/
             
-            sendLiveData((float)randTemp, (float)randHumid);
+            sendLiveData((float)randTemp, (float)randAirHumid, (float)randSoilHumid);
             
             break;
           }
@@ -121,11 +122,12 @@ int connectWifi(String BSSID, String password) {
 
 // send data with a timestamp of the current time to the server,
 // the data is sent to /sensordata/<timestamp> resource on the cloud server
-void sendData(float temp, float airHumid) {
+void sendData(float temp, float airHumid, float soilHumid) {
   // Create a JSON payload with the temperature and humidity values
     StaticJsonDocument<128> jsonPayload;
     jsonPayload["temp"] = temp;
-    jsonPayload["humid"] = airHumid;
+    jsonPayload["air_humid"] = airHumid;
+    jsonPayload["soil_humid"] = soilHumid;
 
     // Serialize the JSON payload to a string
     String payloadString;
@@ -159,11 +161,12 @@ void sendData(float temp, float airHumid) {
 }
 
 // function for sending live data to /sensordata/live/ resource on cloud server
-void sendLiveData(float temp, float airHumid) {
+void sendLiveData(float temp, float airHumid, float soilHumid) {
   // Create a JSON payload with the temperature and humidity values
     StaticJsonDocument<128> jsonPayload;
     jsonPayload["temp"] = temp;
-    jsonPayload["humid"] = airHumid;
+    jsonPayload["air_humid"] = airHumid;
+    jsonPayload["soil_humid"] = soilHumid;
 
     char timeStr[20];
     time_t now = time(nullptr);
