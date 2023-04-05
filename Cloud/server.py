@@ -25,35 +25,40 @@ db = SQLAlchemy(app)
 class SensorDataModel(db.Model):
     timestamp = db.Column(db.String(20), primary_key=True)
     temperature = db.Column(db.Float, nullable=False)
-    humidity = db.Column(db.Float, nullable=False)
+    air_humidity = db.Column(db.Float, nullable=False)
+    soil_humidity = db.Column(db.Float, nullable=False)
 
     def __repr__(self):
-        return f"Data(time={self.timestamp}, temp={self.temperature}, humid={self.humidity})"
+        return f"Data(time={self.timestamp}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
     
 # db.create_all()
 
 # argument parser for put
 sensor_put_args = reqparse.RequestParser()
 sensor_put_args.add_argument('temp', type=str, help='Temperature not specified', required=True)
-sensor_put_args.add_argument('humid', type=str, help='Humidity not specified', required=True)
+sensor_put_args.add_argument('air_humid', type=str, help='Air humidity not specified', required=True)
+sensor_put_args.add_argument('soil_humid', type=str, help='Soil humidity not specified', required=True)
 
 # argument parser for "live data" put
 sensor_live_put_args = reqparse.RequestParser()
 sensor_live_put_args.add_argument('time', type=str, help='Timestamp not specified', required=True)
 sensor_live_put_args.add_argument('temp', type=str, help='Temperature not specified', required=True)
-sensor_live_put_args.add_argument('humid', type=str, help='Humidity not specified', required=True)
+sensor_live_put_args.add_argument('air_humid', type=str, help='Air humidity not specified', required=True)
+sensor_live_put_args.add_argument('soil_humid', type=str, help='Soil humidity not specified', required=True)
 
 # argument parser for update
 sensor_update_args = reqparse.RequestParser()
 sensor_update_args.add_argument('temp', type=str, help='Temperature not specified', required=False)
-sensor_update_args.add_argument('humid', type=str, help='Humidity not specified', required=False)
+sensor_update_args.add_argument('air_humid', type=str, help='Humidity not specified', required=False)
+sensor_update_args.add_argument('soil_humid', type=str, help='Humidity not specified', required=False)
 
 
 # fields for serialization
 resource_fields = {
     'timestamp': fields.String,
     'temperature': fields.Float,
-    'humidity':fields.Float
+    'air_humidity':fields.Float,
+    'soil_humidity':fields.Float
 }
 
 # Some data for sending requests to the ESP
@@ -79,7 +84,7 @@ class SensorData(Resource):
     live_data = {} # A buffer to hold live data from the device
     esp_req_served = [] # Flag to inform when the most recent request was served by the ESP
 
-    # test get function that return a dictionary with "timestamp", "temperature", and "humidity"
+    # test get function that return a dictionary with "timestamp", "temperature", "air_humidity", and "soil_humidity"
     @marshal_with(resource_fields)
     def get(self, timestamp):
         # Check if this is a request for live data or not
@@ -126,7 +131,8 @@ class SensorData(Resource):
                 # Add the data to the dictionary reference
                 self.live_data["timestamp"] = args['time']
                 self.live_data["temperature"] = float(args["temp"])
-                self.live_data["humidity"] = float(args["humid"])
+                self.live_data["air_humidity"] = float(args["air_humid"])
+                self.live_data["soil_humidity"] = float(args["soil_humid"])
                 
                 self.esp_req_served.append(True)
 
@@ -141,7 +147,7 @@ class SensorData(Resource):
                 abort(409, message='Timestamp already exist')
 
             # create a SensorDataModel object and add it to the session
-            data = SensorDataModel(timestamp=timestamp, temperature=float(args['temp']), humidity=float(args['humid']))
+            data = SensorDataModel(timestamp=timestamp, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
             db.session.add(data)
             db.session.commit()
             return data, 201
@@ -161,8 +167,10 @@ class SensorData(Resource):
             
             if args['temp']:
                 result.temperature = float(args['temp'])
-            if args['humid']:
-                result.humidity = float(args['humid'])
+            if args['air_humid']:
+                result.humidity = float(args['air_humid'])
+            if args['soil_humid']:
+                result.humidity = float(args['soil_humid'])
 
             db.session.commit()
 
@@ -182,7 +190,8 @@ class SensorData(Resource):
             data_dict = {
                 'timestamp': row.timestamp,
                 'temperature': row.temperature,
-                'humidity': row.humidity
+                'air_humidity': row.air_humidity,
+                'soil_humidity': row.soil_humidity
             }
             data_list.append(data_dict)
 
