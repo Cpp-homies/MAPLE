@@ -5,7 +5,8 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-
+#include "Button2.h" //  https://github.com/LennartHennigs
+#include "ESPRotary.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -24,7 +25,10 @@
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
-
+#define CLICKS_PER_STEP   4
+#define ROTARY_PIN1	0
+#define ROTARY_PIN2	2
+#define BUTTON_PIN	15
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 Adafruit_BME280 bme;
@@ -42,19 +46,29 @@ Adafruit_BME280 bme;
 
 int LIGHT_SENSOR = 34;
 int SOIL_SENSOR = 35;
-const int DIR = 12;
+const int DIR = 27;
 const int STEP = 14;
 int LIGHTS = 33;
 int FAN = 32;
-int PUMP_POWER = 27;
+int PUMP_POWER = 12;
 int freq = 2000;
 int pwmResolution = 8;
 int pwmChannel_0 = 0;
 int pwmChannel_2 = 2;
 uint8_t brightness;
 int pumpSpeed = 1500;
-int fanSpeed = 190; //190-255
+int fanSpeed = 240; //190-255
 bool fanOn = false;
+uint8_t screenMode = 0;
+
+ESPRotary r;
+Button2 b;
+hw_timer_t *timer = NULL;
+
+void IRAM_ATTR handleLoop() {
+  r.loop();
+  b.loop();
+}
 
 unsigned long previousMillis = 0;
 const long interval = 30000;
@@ -81,15 +95,15 @@ void setup() {
   while(!Serial){}
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
+    //for(;;);
   }
-  
+  Serial.println("Display connected.");
   bool status = bme.begin(0x76);  
   if (!status) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
-    while (1);
+    //while (1);
   }
-  
+  Serial.println("BME280 connected.");
   analogReadResolution(12);
 
   pinMode(LIGHTS,OUTPUT);
@@ -118,8 +132,65 @@ void setup() {
   
   initSDcard();
   
-  
+  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP);
+  //r.setChangedHandler(rotate);
+  //r.setLeftRotationHandler(showDirection);
+  //r.setRightRotationHandler(showDirection);
+  r.setRightRotationHandler(screenModeSoil);
+  r.setLeftRotationHandler(screenModeAir); 
+  //r.setIncrement(1);
+  b.begin(BUTTON_PIN);
+  b.setTapHandler(click);
+  b.setLongClickHandler(resetPosition);
+
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &handleLoop, true);
+  timerAlarmWrite(timer, 3000, true); // every 0.1 seconds
+  timerAlarmEnable(timer);
+  //r.enableSpeedup(true);
+  //r.setSpeedupIncrement(15);
+  //r.setSpeedupInterval(2500);
 }
+
+/////////////////////////////////////////////////////////////////
+//Rotary methods
+
+
+
+
+void screenModeAir(ESPRotary& r){
+  screenMode = 0;
+  Serial.println(r.directionToString(r.getDirection()));
+
+}
+
+void screenModeSoil(ESPRotary& r){
+  screenMode = 1;
+  Serial.println(r.directionToString(r.getDirection()));
+}
+
+// on change
+void rotate(ESPRotary& r) {
+   Serial.println(r.getPosition());
+}
+
+// on left or right rotation
+void showDirection(ESPRotary& r) {
+  Serial.println(r.directionToString(r.getDirection()));
+}
+ 
+// single click
+void click(Button2& btn) {
+  Serial.println("Click!");
+}
+
+// long click
+void resetPosition(Button2& btn) {
+  r.resetPosition();
+  Serial.println("Reset!");
+}
+
+/////////////////////////////////////////////////////////////////
 
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
     Serial.printf("Listing directory: %s\n", dirname);
@@ -417,13 +488,13 @@ void configWifi() {
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
   {
-    //Serial.println("Forcing config mode as there is no saved config");
+    Serial.println("Forcing config mode as there is no saved config");
     forceConfig = true;
   }
   // Explicitly set WiFi mode
   WiFi.mode(WIFI_STA);
  
-  // Reset settings (only for development)
+  //Reset settings (only for development)
   //wm.resetSettings();
  
   // Set config save notify callback
@@ -470,29 +541,30 @@ void configWifi() {
  
   // If we get here, we are connected to the WiFi
  
-  //Serial.println("");
-  //Serial.println("WiFi connected");
-  //Serial.print("IP address: ");
-  //Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
  
   // Lets deal with the user config values
  
   // Copy the string value
   strncpy(usernameString, custom_text_box_username.getValue(), sizeof(usernameString));
-  //Serial.print("usernameString: ");
-  //Serial.println(usernameString);
+  Serial.print("usernameString: ");
+  Serial.println(usernameString);
  
   //Convert the number value
   strncpy(passwordString, custom_text_box_password.getValue(), sizeof(passwordString));
-  //Serial.print("passwordString: ");
-  //Serial.println(passwordString);
+  Serial.print("passwordString: ");
+  Serial.println(passwordString);
+  /*
   delay(5000);
   Serial.println(0);
   delay(5000);
   Serial.println(wm.getWiFiSSID());
   delay(5000);
   Serial.println(wm.getWiFiPass());
- 
+ */
   // Save the custom parameters to FS
   if (shouldSaveConfig)
   {
@@ -500,6 +572,29 @@ void configWifi() {
   }
 
   configTime(0, 0, "pool.ntp.org");
+}
+
+void displaySoilData(){
+  display.clearDisplay();
+  // display temperature
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.print("Soil humidity:");
+  display.setTextSize(2);
+  display.setCursor(0,10);
+  display.print("Some %");
+  
+  
+  // display humidity
+  display.setTextSize(1);
+  display.setCursor(0, 35);
+  display.print("Last watering: ");
+  display.setTextSize(2);
+  display.setCursor(0, 45);
+  display.print("Some time");
+   
+  
+  display.display();  
 }
 
 void displayTempHumidity(){
@@ -595,6 +690,7 @@ void adjustLights(){
     digitalWrite(LIGHTS, HIGH);
   }*/
   int lightIntensity = analogRead(LIGHT_SENSOR);
+  //Serial.println(lightIntensity);
   if(lightIntensity<=3600){
     brightness = map(lightIntensity, 3600, 0, 0, 255);
   } else {
@@ -632,11 +728,13 @@ void checkAirHumidity(){
   if(bme.readHumidity()>50.0){
     if(!fanOn){
       ledcWrite(pwmChannel_2, fanSpeed);
+      Serial.println("FAN ON");
       fanOn = true;      
     } 
   } else {
     if(fanOn) {
       ledcWrite(pwmChannel_2, 0);
+      Serial.println("FAN OFF");
       fanOn = false;
     }
   }
@@ -644,7 +742,13 @@ void checkAirHumidity(){
 
 void loop() {
   
-  displayTempHumidity();
+  
+  if (screenMode == 0){
+    displayTempHumidity();
+  } else {
+    displaySoilData();
+  }
+  
   adjustLights();
   unsigned long currentMillis = millis();
   if (needsWater()){
@@ -652,7 +756,8 @@ void loop() {
   }
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    sendData(bme.readTemperature(), bme.readHumidity());    
+    //sendData(bme.readTemperature(), bme.readHumidity());    
   }
   checkAirHumidity();
+  
 }
