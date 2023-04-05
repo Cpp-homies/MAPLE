@@ -8,6 +8,7 @@
 #include "Button2.h" //  https://github.com/LennartHennigs
 #include "ESPRotary.h"
 #include <WiFi.h>
+#include "mbedtls/md.h"
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
@@ -270,7 +271,36 @@ void sendLiveData(float temp, float airHumid, float soilHumid) {
     http.end();
 }
 
+// Function to hash a given string using SHA-256
+ String hashString(const char *str) {
+  byte hashed_bytes[32];
+  
+  mbedtls_md_context_t ctx;
+  mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
+  
+  const size_t str_length = strlen(str);
+  mbedtls_md_init(&ctx);
+  mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 0);
+  mbedtls_md_starts(&ctx);
+  mbedtls_md_update(&ctx, (const unsigned char *) str, str_length);
+  mbedtls_md_finish(&ctx, hashed_bytes);
+  mbedtls_md_free(&ctx);
+  
+  String hashed_str = "";
 
+  for(int i= 0; i< sizeof(hashed_bytes); i++)
+  {
+    char temp[3];
+    sprintf(temp, "%02x", (int)hashed_bytes[i]);
+    
+    // Serial.print(str);
+    
+    // Append the temporary string to the hashed_str result
+    hashed_str += temp;
+  }
+
+  return hashed_str;
+}
 ////////////////////////////////////////////
 
 
