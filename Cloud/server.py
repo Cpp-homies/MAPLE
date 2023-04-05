@@ -21,7 +21,7 @@ api = Api(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
 db = SQLAlchemy(app)
 
-# create the schema for the student
+# create the schema for the sensor data
 class SensorDataModel(db.Model):
     timestamp = db.Column(db.String(20), primary_key=True)
     user_id = db.Column(db.String, primary_key=True)
@@ -30,7 +30,15 @@ class SensorDataModel(db.Model):
     soil_humidity = db.Column(db.Float, nullable=False)
 
     def __repr__(self):
-        return f"Data(time={self.timestamp}, user={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
+        return f"Data(timestamp={self.timestamp}, user_id={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
+    
+# create the schema for the student
+class UserAuthModel(db.Model):
+    user_id = db.Column(db.String(20), primary_key=True)
+    password = db.Column(db.String, nullable=False)
+
+    def __repr__(self):
+        return f"Auth(timestamp={self.timestamp}, user_id={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
     
 # db.create_all()
 
@@ -122,20 +130,20 @@ def find_client(user_list, user_id):
     return None
 
     
+# A list of clients (users)
+clients = []
 # test resource
 class SensorData(Resource):
-    # A list of clients (users)
-    clients = []
 
     # live_data = {} # A buffer to hold live data from the device
     # esp_req_served = [] # Flag to inform when the most recent request was served by the ESP
 
     # test get function that return a dictionary with "timestamp", "temperature", "air_humidity", and "soil_humidity"
     @marshal_with(resource_fields)
-    def get(self, timestamp, user_id):
+    def get(self, user_id, timestamp):
         # Check if this is a request for live data or not
         if timestamp == "live":
-            client = find_client(self.clients, user_id)
+            client = find_client(clients, user_id)
 
             if client:
                 # Ask the ESP to update the live data (function executed aynchronously in the background)
@@ -155,6 +163,7 @@ class SensorData(Resource):
         else:
              # Query data by user ID
             results = SensorDataModel.query.filter_by(user_id=user_id).all()
+            print(results)
 
             # Check if user ID exists
             if not results:
@@ -166,6 +175,8 @@ class SensorData(Resource):
             # Check if timestamp exists
             if not result:
                 abort(404, message="Timestamp not found")
+            
+            return result
     
     # update the live data from the ESP
     async def update_live_data(self, client):
@@ -185,7 +196,7 @@ class SensorData(Resource):
         try:
             if timestamp == "live":
                 args = sensor_live_put_args.parse_args()
-                client = find_client(self.clients, user_id)
+                client = find_client(clients, user_id)
 
                 if client:
 
@@ -254,8 +265,8 @@ class SensorData(Resource):
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
     
-    @app.route('/<string:user_id>/datatable', methods=['GET'])
-    def get_data_table(self, user_id):
+    @app.route('/datatable/<string:user_id>', methods=['GET'])
+    def get_data_table(user_id):
         # Query all data rows from the database
         rows = SensorDataModel.query.filter_by(user_id=user_id).all()
 
@@ -264,6 +275,7 @@ class SensorData(Resource):
         for row in rows:
             data_dict = {
                 'timestamp': row.timestamp,
+                'user_id': row.user_id,
                 'temperature': row.temperature,
                 'air_humidity': row.air_humidity,
                 'soil_humidity': row.soil_humidity
@@ -274,9 +286,9 @@ class SensorData(Resource):
         return jsonify(data_list)
     
     # GET method to get the next request for the ESP to execute
-    @app.route('/<string:user_id>/request-to-esp', methods=['GET'])
-    def get_esp_request(self, user_id):
-        client = find_client(self.clients, user_id) #here1
+    @app.route('/request-to-esp/<string:user_id>', methods=['GET'])
+    def get_esp_request(user_id):
+        client = find_client(clients, user_id) #here1
         if client:
             return client.pop_esp_req()
         else:
