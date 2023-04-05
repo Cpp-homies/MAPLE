@@ -65,7 +65,7 @@ resource_fields = {
 }
 
 # Some data for sending requests to the ESP
-esp_reqs = [] # A queue of requests to send to the ESP
+# esp_reqs = [] # A queue of requests to send to the ESP
 esp_req_timeout = 10 # Maximum time to wait for the ESP response (in seconds)
 
 # helper function that wait until a certain external condition (list type) turns true,
@@ -82,33 +82,75 @@ def wait_until(cond, timeout):
         return False
     return True
 
-# class Clients():
-#     def __init__(self, user_id):
-#         self.user_id = user_id
-#         self.live_data
-        
+class Client():#here-2
+    def __init__(self, user_id):
+        self.user_id = user_id
+        self.live_data = {} # the most recently updated live data for this client
+        self.esp_reqs = [] # the list of request for the esp (device) of this client
+        self.esp_req_served = [] # flag that indicates if the most recent request for this client has been served or not
+    
+    # get the most recent request from the request list
+    def pop_esp_req(self):
+        if self.esp_reqs:
+            return self.esp_reqs.pop()
+        return {"type": ESP_Req_Code.NO_REQ.value}
+    
+    # Add new request for this user's esp (device), the request arguments is given in the form of a dictionary
+    def add_esp_req(self, req_args):
+        # # make a dictionary object with this user's id and then all the key-value pairs in the req_args
+        # req_dict = {'user_id': self.user_id}
+        # req_dict.update(req_args)
 
+        # Append the req_dict to the list of requests
+        self.esp_reqs.append(req_args)
+
+    # Raise the esp_req_served flag
+    def raise_esp_req_served(self):
+        self.esp_req_served.append(True)
+
+
+
+# helper functions for working with the client class
+## find the user with the specified ID from a list
+def find_client(user_list, user_id):
+    # sSarch for the user object with the correct self.user_id == user_id attribute and return it
+    for user in user_list:
+        if user.user_id == user_id:
+            return user
+
+    # If there is no user with the specified user_id, return None
+    return None
+
+    
 # test resource
 class SensorData(Resource):
-    live_data = {} # A buffer to hold live data from the device
-    esp_req_served = [] # Flag to inform when the most recent request was served by the ESP
+    # A list of clients (users)
+    clients = []
+
+    # live_data = {} # A buffer to hold live data from the device
+    # esp_req_served = [] # Flag to inform when the most recent request was served by the ESP
 
     # test get function that return a dictionary with "timestamp", "temperature", "air_humidity", and "soil_humidity"
     @marshal_with(resource_fields)
     def get(self, timestamp, user_id):
         # Check if this is a request for live data or not
         if timestamp == "live":
-            # Ask the ESP to update the live data (function executed aynchronously in the background)
-            update_status = asyncio.run(self.update_live_data(user_id))
-            # print(update_status)
-            if not update_status:
-                # Inform the sender that the request has timed out
-                print("[INFO] Request to ESP timeout")
-                abort(408, message="Request timeout - no response received from the ESP")
+            client = find_client(self.clients, user_id)
+
+            if client:
+                # Ask the ESP to update the live data (function executed aynchronously in the background)
+                update_status = asyncio.run(self.update_live_data(client))
+                # print(update_status)
+                if not update_status:
+                    # Inform the sender that the request has timed out
+                    print("[INFO] Request to ESP timeout")
+                    abort(408, message="Request timeout - no response received from the ESP")
+                else:
+                    client.esp_req_served = False # reset the req_served flag
+                    print(client.live_data)
+                    return client.live_data
             else:
-                del self.esp_req_served[:] # reset the flag
-                print(self.live_data)
-                return self.live_data
+                abort(404, message="User ID not found")
 
         else:
              # Query data by user ID
@@ -126,12 +168,12 @@ class SensorData(Resource):
                 abort(404, message="Timestamp not found")
     
     # update the live data from the ESP
-    async def update_live_data(self, user_id):
+    async def update_live_data(self, client):
          # Add the request to the pending request list for the ESP
-        esp_reqs.append({"user_id": user_id, "type":ESP_Req_Code.LIVE_DATA.value})
+        client.add_esp_req({"type":ESP_Req_Code.LIVE_DATA.value})
 
         # Wait until the ESP respond or timeout has been reached
-        req_succeed = wait_until(self.esp_req_served, esp_req_timeout)
+        req_succeed = wait_until(client.esp_req_served, esp_req_timeout)
         if not req_succeed:
             # Inform the sender that the request has timed out
             return False
@@ -143,17 +185,24 @@ class SensorData(Resource):
         try:
             if timestamp == "live":
                 args = sensor_live_put_args.parse_args()
+                client = find_client(self.clients, user_id)
 
-                # Add the data to the live_data dictionary
-                self.live_data["timestamp"] = args['time']
-                self.live_data["user_id"] = user_id
-                self.live_data["temperature"] = float(args["temp"])
-                self.live_data["air_humidity"] = float(args["air_humid"])
-                self.live_data["soil_humidity"] = float(args["soil_humid"])
+                if client:
+
+                    # Add the data to the live_data dictionary
+                    client.live_data["timestamp"] = args['time']
+                    client.live_data["user_id"] = user_id
+                    client.live_data["temperature"] = float(args["temp"])
+                    client.live_data["air_humidity"] = float(args["air_humid"])
+                    client.live_data["soil_humidity"] = float(args["soil_humid"])
+                    
+                    client.raise_req_served() # raise the esp_req_served flag
+
+                    return client.live_data, 201
                 
-                self.esp_req_served.append(True)
+                else:
+                    abort(404, message="User ID not found")
 
-                return self.live_data, 201
             
             args = sensor_put_args.parse_args()
             # check whether the timestamp is taken or not
@@ -177,10 +226,19 @@ class SensorData(Resource):
         try:
             args = sensor_update_args.parse_args()
 
-            # check whether the timestamp exist or not
-            result = SensorDataModel.query.filter_by(timestamp=timestamp, user_id=user_id).first()
+            # Query data by user ID
+            results = SensorDataModel.query.filter_by(user_id=user_id).all()
+
+            # Check if user ID exists
+            if not results:
+                abort(404, message="User ID not found")
+
+            # Filter data by timestamp
+            result = next((item for item in results if item.timestamp == timestamp), None)
+
+            # Check if timestamp exists
             if not result:
-                abort(404, message='Timestamp not found')
+                abort(404, message="Timestamp not found")
             
             if args['temp']:
                 result.temperature = float(args['temp'])
@@ -197,7 +255,7 @@ class SensorData(Resource):
             abort(400, message="Invalid arguments")
     
     @app.route('/<string:user_id>/datatable', methods=['GET'])
-    def get_data_table(user_id):
+    def get_data_table(self, user_id):
         # Query all data rows from the database
         rows = SensorDataModel.query.filter_by(user_id=user_id).all()
 
@@ -217,10 +275,12 @@ class SensorData(Resource):
     
     # GET method to get the next request for the ESP to execute
     @app.route('/<string:user_id>/request-to-esp', methods=['GET'])
-    def get_esp_request(user_id):
-        if esp_reqs:
-            return esp_reqs.pop()
-        return {"type": ESP_Req_Code.NO_REQ.value}
+    def get_esp_request(self, user_id):
+        client = find_client(self.clients, user_id) #here1
+        if client:
+            return client.pop_esp_req()
+        else:
+            abort(404, message="User ID not found")
         
 
     # @marshal_with(resource_fields)    
