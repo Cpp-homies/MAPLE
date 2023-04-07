@@ -320,6 +320,9 @@ login_put_args = reqparse.RequestParser()
 login_put_args.add_argument('user_id', type=str, help='Username not specified', required=True)
 login_put_args.add_argument('password', type=str, help='Password not specified', required=True)
 
+# login_patch_args = reqparse.RequestParser()
+# login_patch_args.add_argument('password', type=str, help='Password not specified', required=True)
+
 
 # User authenication fields for serialization
 userAuth_fields = {
@@ -344,7 +347,29 @@ class Authentication(Resource):
         except ValueError as e:
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
-        
+    
+
+    @app.route('/auth/login', methods=['PATCH'])
+    def patch_login():
+        try:
+            args = login_put_args.parse_args()
+
+            # check whether the username exist or not
+            result = UserAuthModel.query.filter_by(user_id=args["user_id"]).first()
+
+            if not result:
+                return {'message': 'Username does not exist'}, 404
+
+            if args['password']:
+                result.password = args['password']
+
+            db.session.commit()
+            return marshal(result, userAuth_fields), 201
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
+
+
 
 
         
