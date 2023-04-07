@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, session
 # from celery import Celery
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, marshal, fields
 from flask_sqlalchemy import SQLAlchemy
@@ -19,6 +19,7 @@ class ESP_Req_Code(Enum):
 app = Flask(__name__)
 api = Api(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
+app.secret_key = "sawcon"
 db = SQLAlchemy(app)
 
 # create the schema for the sensor data
@@ -90,6 +91,7 @@ def wait_until(cond, timeout):
         return False
     return True
 
+# A class to represent a client and related temporary data to that client
 class Client():
     def __init__(self, user_id):
         self.user_id = user_id
@@ -139,8 +141,12 @@ class SensorData(Resource):
     # esp_req_served = [] # Flag to inform when the most recent request was served by the ESP
 
     # test get function that return a dictionary with "timestamp", "temperature", "air_humidity", and "soil_humidity"
-    @marshal_with(resource_fields)
+    # @marshal_with(resource_fields)
     def get(self, user_id, timestamp):
+        # Check if this data access is authorized (by loging in) or not
+        if not check_user_auth(user_id):
+            return {'message': 'Unauthorized access'}, 401
+
         # Check if this is a request for live data or not
         if timestamp == "live":
             client = find_client(clients, user_id)
@@ -176,7 +182,7 @@ class SensorData(Resource):
             if not result:
                 abort(404, message="Timestamp not found")
             
-            return result
+            return marshal(result, resource_fields)
     
     # update the live data from the ESP
     async def update_live_data(self, client):
@@ -193,6 +199,9 @@ class SensorData(Resource):
         
     @marshal_with(resource_fields)
     def put(self, timestamp, user_id):
+        # Check if this data access is authorized (by loging in) or not
+        if not check_user_auth(user_id):
+            return {'message': 'Unauthorized access'}, 401
         try:
             if timestamp == "live":
                 args = sensor_live_put_args.parse_args()
@@ -207,7 +216,7 @@ class SensorData(Resource):
                     client.live_data["air_humidity"] = float(args["air_humid"])
                     client.live_data["soil_humidity"] = float(args["soil_humid"])
                     
-                    client.raise_req_served() # raise the esp_req_served flag
+                    client.raise_esp_req_served() # raise the esp_req_served flag
 
                     return client.live_data, 201
                 
@@ -234,6 +243,9 @@ class SensorData(Resource):
     
     @marshal_with(resource_fields)
     def patch(self, timestamp, user_id):
+        # Check if this data access is authorized (by loging in) or not
+        if not check_user_auth(user_id):
+            return {'message': 'Unauthorized access'}, 401
         try:
             args = sensor_update_args.parse_args()
 
@@ -267,6 +279,9 @@ class SensorData(Resource):
     
     @app.route('/datatable/<string:user_id>', methods=['GET'])
     def get_data_table(user_id):
+        # Check if this data access is authorized (by loging in) or not
+        if not check_user_auth(user_id):
+            return {'message': 'Unauthorized access'}, 401
         # Query all data rows from the database
         rows = SensorDataModel.query.filter_by(user_id=user_id).all()
 
@@ -288,6 +303,9 @@ class SensorData(Resource):
     # GET method to get the next request for the ESP to execute
     @app.route('/request-to-esp/<string:user_id>', methods=['GET'])
     def get_esp_request(user_id):
+        # Check if this data access is authorized (by loging in) or not
+        if not check_user_auth(user_id):
+            return {'message': 'Unauthorized access'}, 401
         client = find_client(clients, user_id)
         if client:
             return client.pop_esp_req()
@@ -315,6 +333,15 @@ class SensorData(Resource):
  
 
 ## Authentication code
+# Helper functions
+
+# Function that checks if the user is authenticated or not
+def check_user_auth(user_id):
+    if user_id == session.get('auth_user'):
+        return True
+    return False
+
+
 # argument parser for put
 login_put_args = reqparse.RequestParser()
 login_put_args.add_argument('user_id', type=str, help='Username not specified', required=True)
@@ -342,6 +369,11 @@ class Authentication(Resource):
                 return {'message': 'Username does not exist'}, 404
 
             if (result.password == args['password']):
+                # Remember that this session has been authenticated for the given user ID
+                session["auth_user"] = args['user_id']
+
+                # Add a new Client() object for this user
+                clients.append(Client(args['user_id']))
                 return {'status': 1}, 201
             return {'status': 0}, 201
         except ValueError as e:

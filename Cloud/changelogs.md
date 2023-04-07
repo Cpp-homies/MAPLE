@@ -7,6 +7,8 @@
 	- a dictionary with "status" attributes:
 		- `response["status"] == 0`: password does not match the one in the database, authentication failed
 		- `response["status"] == 1`: password matches the one in the database, authentication was successful
+- User's password can be change using PATCH requets to "\<base url\>/auth/login" with two parameters "user_id" and "password".
+- A session must be authenticate by logging in first before any request can be made.
 
 ### 05/04
 **App to Cloud interaction**
