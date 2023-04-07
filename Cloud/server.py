@@ -327,9 +327,27 @@ userAuth_fields = {
     'password': fields.String,
 }
 class Authentication(Resource):
-    
-    
-    
+    @app.route('/auth/login', methods=['GET'])
+    def get_login():
+        try:
+            args = login_put_args.parse_args()
+
+            # check whether the username exist or not
+            result = UserAuthModel.query.filter_by(user_id=args["user_id"]).first()
+
+            if not result:
+                return {'message': 'Username does not exist'}, 404
+
+            if (result.password == args['password']):
+                return {'status': 1}, 201
+            return {'status': 0}, 201
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
+        
+
+
+        
     @app.route('/auth/register', methods=['PUT'])
     # @marshal_with(userAuth_fields)
     def put_register():#here
@@ -355,6 +373,7 @@ class Authentication(Resource):
 api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestamp>")
 api.add_resource(Authentication, "/auth")
 api.add_resource(Authentication, "/auth/register", endpoint="register")
+api.add_resource(Authentication, "/auth/login", endpoint="login")
 
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
