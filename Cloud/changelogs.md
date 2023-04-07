@@ -3,8 +3,8 @@
 **App to Cloud interaction**
 - A new user_id and password hash pair can be add to the database by sending PUT to "\<base url\>/auth/register" with two parameters "user_id" and "password"
 - A hashed user_id and password pair can be check by sending GET to "\<base url\>/auth/login" with two parameters "user_id" and "password". This will have the following return values
-	- 404 HTTP response code: username not found
-	- a dictionary with "status" attributes:
+	- If the username is not found: 404 HTTP response code
+	- If the username is found: a dictionary with "status" attributes:
 		- `response["status"] == 0`: password does not match the one in the database, authentication failed
 		- `response["status"] == 1`: password matches the one in the database, authentication was successful
 - User's password can be change using PATCH requets to "\<base url\>/auth/login" with two parameters "user_id" and "password".
