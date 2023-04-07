@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 # from celery import Celery
-from flask_restful import Api, Resource, reqparse, abort, marshal_with, fields
+from flask_restful import Api, Resource, reqparse, abort, marshal_with, marshal, fields
 from flask_sqlalchemy import SQLAlchemy
 from enum import Enum
 import time
@@ -40,7 +40,7 @@ class UserAuthModel(db.Model):
     def __repr__(self):
         return f"Auth(timestamp={self.timestamp}, user_id={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
     
-# db.create_all()
+db.create_all()
 
 # argument parser for put
 sensor_put_args = reqparse.RequestParser()
@@ -90,7 +90,7 @@ def wait_until(cond, timeout):
         return False
     return True
 
-class Client():#here-2
+class Client():
     def __init__(self, user_id):
         self.user_id = user_id
         self.live_data = {} # the most recently updated live data for this client
@@ -288,7 +288,7 @@ class SensorData(Resource):
     # GET method to get the next request for the ESP to execute
     @app.route('/request-to-esp/<string:user_id>', methods=['GET'])
     def get_esp_request(user_id):
-        client = find_client(clients, user_id) #here1
+        client = find_client(clients, user_id)
         if client:
             return client.pop_esp_req()
         else:
@@ -313,8 +313,48 @@ class SensorData(Resource):
     # def post(self):
     #     return {'data':'Posted'}
  
-api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestamp>")
 
+## Authentication code
+# argument parser for put
+login_put_args = reqparse.RequestParser()
+login_put_args.add_argument('user_id', type=str, help='Username not specified', required=True)
+login_put_args.add_argument('password', type=str, help='Password not specified', required=True)
+
+
+# User authenication fields for serialization
+userAuth_fields = {
+    'user_id': fields.String,
+    'password': fields.String,
+}
+class Authentication(Resource):
+    
+    
+    
+    @app.route('/auth/register', methods=['PUT'])
+    # @marshal_with(userAuth_fields)
+    def put_register():#here
+        try:
+            
+            args = login_put_args.parse_args()
+
+            # check whether the username is taken or not
+            result = UserAuthModel.query.filter_by(user_id=args["user_id"]).first()
+
+            if result:
+                return {'message': 'Username already exist'}, 409
+
+            # create a SensorDataModel object and add it to the session
+            data = UserAuthModel(user_id=args["user_id"], password=args["password"])
+            db.session.add(data)
+            db.session.commit()
+            return marshal(data, userAuth_fields), 201
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
+
+api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestamp>")
+api.add_resource(Authentication, "/auth")
+api.add_resource(Authentication, "/auth/register", endpoint="register")
 
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
