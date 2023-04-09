@@ -50,6 +50,8 @@ int pwmResolution = 8;
 int pwmChannel_0 = 0;
 int pwmChannel_2 = 2;
 
+uint16_t analogWet = 1500;
+uint16_t analogDry = 3000;
 uint8_t brightness;
 int pumpSpeed = 1500;
 int fanSpeed = 240; //190-255
@@ -118,10 +120,8 @@ void setup() {
   ledcAttachPin(LIGHTS, pwmChannel_0);
   ledcAttachPin(FAN, pwmChannel_2);
   
-  
-  delay(2000);
-  display.clearDisplay();
   display.setTextColor(WHITE);
+  displayBoot();
 
   configWifi();
   
@@ -394,11 +394,11 @@ void configWifi() {
   Serial.print("passwordString: ");
   Serial.println(passwordString);
   
-  delay(3000);
+  delay(1000);
   SerialPort.println(0);
-  delay(3000);
+  delay(1000);
   SerialPort.println(wm.getWiFiSSID());
-  delay(3000);
+  delay(1000);
   String pass = wm.getWiFiPass();
   Serial.print("Wifi password:");
   Serial.println(pass);
@@ -418,6 +418,8 @@ void configWifi() {
   configTime(0, 0, "pool.ntp.org");
 }
 /////////////////////////////////////////////////////////////////
+//display methods
+
 void displaySoilData(){
   display.clearDisplay();
   // display temperature
@@ -426,8 +428,8 @@ void displaySoilData(){
   display.print("Soil humidity:");
   display.setTextSize(2);
   display.setCursor(0,10);
-  display.print("Some %");
-  
+  display.print(convertToSoilHumidity(analogRead(SOIL_SENSOR)));
+  display.print(" %");
   
   // display humidity
   display.setTextSize(1);
@@ -481,6 +483,16 @@ void displayLightIntensity(){
   display.print(String(analogRead(LIGHT_SENSOR)));
   display.display();
 }
+
+void displayBoot(){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(5, 25);
+  display.print("M.A.P.L.E.");
+  display.display();
+}
+/////////////////////////////////////////////////////////////////
+//self-explanatory
 
 void sendData(float temp, float airHumid) {
   // Create a JSON payload with the temperature and humidity values
@@ -579,6 +591,10 @@ void checkAirHumidity(){
   }
 }
 
+float convertToSoilHumidity(uint16_t analogInput){ 
+  return (3050.0-float(analogInput))/15.0;
+}
+
 void loop() {
   
   
@@ -591,7 +607,7 @@ void loop() {
   adjustLights();
   unsigned long currentMillis = millis();
   if (needsWater()){
-    pumpWater();
+    //pumpWater();
   }
   if (currentMillis - previousMillis >= 5000) {
     previousMillis = currentMillis;
