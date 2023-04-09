@@ -15,9 +15,6 @@
 #include <WiFi.h>
 #include "time.h"
 
-// REPLACE WITH YOUR NETWORK CREDENTIALS
-const char* ssid = "Stanley's toilet";
-const char* password = "81053851414";
 
 // REPLACE WITH YOUR TIMEZONE STRING: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
@@ -44,7 +41,6 @@ String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
 // Stores the camera configuration parameters
 camera_config_t config;
 
-HardwareSerial SerialPort(2);
 
 // Initializes the camera
 void configInitCamera(){
@@ -238,8 +234,7 @@ void setup() {
 
   Serial.begin(115200);
   while(!Serial){}
-  SerialPort.begin(115200, SERIAL_8N1, 16, 17);
-  while(!SerialPort){}
+
   // Initialize Wi-Fi
   initWiFi();
   // Initialize time with timezone

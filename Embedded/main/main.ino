@@ -52,6 +52,8 @@ const int STEP = 14;
 int LIGHTS = 33;
 int FAN = 32;
 int PUMP_POWER = 12;
+int RX_PORT2 = 16;
+int TX_PORT2 = 17;
 int freq = 2000;
 int pwmResolution = 8;
 int pwmChannel_0 = 0;
@@ -61,6 +63,7 @@ int pumpSpeed = 1500;
 int fanSpeed = 240; //190-255
 bool fanOn = false;
 uint8_t screenMode = 0;
+const char *dataFile = "/mapleData.csv";
 
 ESPRotary r;
 Button2 b;
@@ -94,6 +97,9 @@ WiFiManager wm;
 void setup() {
   Serial.begin(115200);
   while(!Serial){}
+  SerialPort.begin(115200, SERIAL_8N1, RX_PORT2, TX_PORT2);
+  while (!SerialPort){}
+
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     //for(;;);
@@ -153,8 +159,7 @@ void setup() {
   //r.setSpeedupInterval(2500);
 
   //camera communication
-  SerialPort.begin(115200, SERIAL_8N1, 16, 17);
-  while (!SerialPort){}
+  
 }
 
 /////////////////////////////////////////////////////////////////
@@ -352,6 +357,30 @@ void testFileIO(fs::FS &fs, const char * path){
     end = millis() - start;
     Serial.printf("%u bytes written for %u ms\n", 2048 * 512, end);
     file.close();
+}
+
+void logData(){
+  File file = SD.open(dataFile);
+  if(!file){
+    file = SD.open(dataFile, FILE_WRITE);
+        if(!file){
+          Serial.println("Failed to open file for data logging");
+          return;
+        } else {
+          file.println("AirTemp,AirHumidity,SoilHumidity");
+          
+        }
+  }
+  file.close();
+  file = SD.open(dataFile, FILE_APPEND);
+    if(!file){
+        Serial.println("Failed to open file for data logging");
+    }
+  String toWrite = String(bme.readTemperature())+","+ String(bme.readHumidity())+","+ String(analogRead(SOIL_SENSOR));
+  char buffer[toWrite.length()+1];
+  toWrite.toCharArray(buffer, toWrite.length()+1);
+  file.println(buffer);
+  file.close();
 }
 
 void initSDcard(){
@@ -766,6 +795,10 @@ void loop() {
   unsigned long currentMillis = millis();
   if (needsWater()){
     pumpWater();
+  }
+  if (currentMillis - previousMillis >= 5000) {
+    previousMillis = currentMillis;
+    logData();   
   }
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
