@@ -92,6 +92,10 @@ char passwordString[50] = "Password";
 // The hashedString and password
 String hashedUsername;
 String hashedPassword;
+
+// The session cookies for one time authentication
+// Extract the session cookie from the response headers
+String sessionCookie;
  
 // Define WiFiManager Object
 WiFiManager wm;
@@ -100,15 +104,20 @@ WiFiManager wm;
 // Device-Cloud communication methods
 TaskHandle_t listenerHandle;
 
+// The HTTPClient object used for communication
+HTTPClient http;
+
 // Function that get incoming request from the cloud
 // return the HTTP response code, and change the JSON document requestArgs to contain any input arguments for the request (if any)
 int getNewRequest(DynamicJsonDocument *requestArgs) {
     // Create the address
-    String address = BASE_URL + "request-to-esp/" + hashedUsername;
-    HTTPClient http;
+    String address = BASE_URL + "request-to-esp/" + hashedUsername + "/" + hashedPassword;
+    // HTTPClient http;
     http.begin(address);
     Serial.println("Sending request to " + address);
     // Send HTTP GET request to the cloud to check for incoming request
+    // http.setCookie("session", session["auth_user"]);
+    http.addHeader("session", sessionCookie);
     int httpResponseCode = http.GET();
 
     if (httpResponseCode > 0) {
@@ -119,13 +128,14 @@ int getNewRequest(DynamicJsonDocument *requestArgs) {
             Serial.println("Failed to parse JSON response");
             return -1;
         }
-        http.end();
+        // http.end();
         return httpResponseCode;
     } else {
-        http.end();
+        // http.end();;
         return httpResponseCode;
     }
 }
+
 
 // a mini server that check for new data requests from the cloud
 void Listener( void * pvParameters ){
@@ -206,19 +216,21 @@ void Listener( void * pvParameters ){
 
 
 // send data with a timestamp of the current time to the server,
-// the data is sent to /sensordata/<timestamp> resource on the cloud server
+// the data is sent to esp-req/sensordata/<timestamp> resource on the cloud server
 void sendData(float temp, float airHumid, float soilHumid) {
   // Create a JSON payload with the temperature and humidity values
     StaticJsonDocument<128> jsonPayload;
     jsonPayload["temp"] = temp;
     jsonPayload["air_humid"] = airHumid;
-    jsonPayload["soil_humid"] = soilHumid;
+    jsonPayload["soil_humid"] = soilHumid;//here
+    jsonPayload["user_id"] = hashedUsername;
+    jsonPayload["password"] = hashedPassword;
 
     // Serialize the JSON payload to a string
     String payloadString;
     serializeJson(jsonPayload, payloadString);
 
-    String address = BASE_URL + "sensordata/";
+    String address = BASE_URL + "esp-req/sensordata/";
     char timeStr[20];
     time_t now = time(nullptr);
     struct tm* timeinfo = localtime(&now);
@@ -226,7 +238,7 @@ void sendData(float temp, float airHumid, float soilHumid) {
     
     String timeStr_String = String(timeStr);
     address = address + timeStr_String;
-    HTTPClient http;
+    // HTTPClient http;
     http.begin(address);
 
     // Set the content type header to JSON
@@ -242,16 +254,18 @@ void sendData(float temp, float airHumid, float soilHumid) {
       Serial.print("Error sending request: ");
       Serial.println(httpResponseCode);
     }
-    http.end();
+    // http.end();;
 }
 
 // function for sending live data to /sensordata/live/ resource on cloud server
 void sendLiveData(float temp, float airHumid, float soilHumid) {
   // Create a JSON payload with the temperature and humidity values
-    StaticJsonDocument<128> jsonPayload;
+    StaticJsonDocument<512> jsonPayload;
     jsonPayload["temp"] = temp;
     jsonPayload["air_humid"] = airHumid;
     jsonPayload["soil_humid"] = soilHumid;
+    jsonPayload["user_id"] = hashedUsername;
+    jsonPayload["password"] = hashedPassword;
 
     char timeStr[20];
     time_t now = time(nullptr);
@@ -265,9 +279,9 @@ void sendLiveData(float temp, float airHumid, float soilHumid) {
     serializeJson(jsonPayload, payloadString);
 
     // make the address
-    String address = BASE_URL + "sensordata/live";
+    String address = BASE_URL + "esp-req/sensordata/live";
     
-    HTTPClient http;
+    // HTTPClient http;
     http.begin(address);
 
     // Set the content type header to JSON
@@ -283,7 +297,7 @@ void sendLiveData(float temp, float airHumid, float soilHumid) {
       Serial.print("Error sending request: ");
       Serial.println(httpResponseCode);
     }
-    http.end();
+    // http.end();;
 }
 
 // Function to hash a given string using SHA-256
@@ -335,7 +349,7 @@ int cloudLogin(String hashedUsername, String hashedPassword) {
   
   // Create the address
   String address = BASE_URL + "auth/login?user_id=" + hashedUsername + "&password=" + hashedPassword;
-  HTTPClient http;
+  // HTTPClient http;
   http.begin(address);
   Serial.println("Sending request to " + address);
   // Send HTTP GET request to the cloud to check for incoming request
@@ -344,19 +358,22 @@ int cloudLogin(String hashedUsername, String hashedPassword) {
   const size_t capacity = JSON_OBJECT_SIZE(1) + 20;
   DynamicJsonDocument requestArgs(capacity);
   if (httpResponseCode > 0) {
+      // Extract the session cookie from the response headers
+      sessionCookie = http.header("Set-Cookie");
+
       // Parse the response JSON
       String response = http.getString();
       DeserializationError error = deserializeJson(requestArgs, response);
       if (error) {
           Serial.println("Failed to parse JSON response");
-          http.end();
+          // http.end();;
           return -1;
       }
-      http.end();
+      // http.end();;
       int loginStatus = requestArgs["status"];
       return loginStatus;
   } else {
-      http.end();
+      // http.end();
       return -1;
   }
 }
@@ -365,6 +382,7 @@ int cloudLogin(String hashedUsername, String hashedPassword) {
 
 
 void setup() {
+  http.setReuse(true);// reuse for all connection in order to authenticate one time only
   Serial.begin(115200);
   while(!Serial){}
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -404,19 +422,20 @@ void setup() {
 
   configWifi();
 
+
   // Hash the username and password obtained from the user and store it to the global variables
   hashedUsername = hashString(usernameString);
   hashedPassword = hashString(passwordString);
 
-  // login to the cloud
-  int loginStatus = cloudLogin(hashedUsername, hashedPassword);
+  // // login to the cloud
+  // int loginStatus = cloudLogin(hashedUsername, hashedPassword);
 
-  if (loginStatus == 1) {
-    Serial.println("Cloud authentication completed for core 1");
-  } 
-  else {
-    Serial.println("Cloud authentication failed for core 1");
-  }
+  // if (loginStatus == 1) {
+  //   Serial.println("Cloud authentication completed for core 1");
+  // } 
+  // else {
+  //   Serial.println("Cloud authentication failed for core 1");
+  // }
   
   initSDcard();
   
@@ -448,6 +467,7 @@ void setup() {
                     1,           /* priority of the task */
                     &listenerHandle,      /* Task handle to keep track of created task */
                     0);          /* pin task to core 0 */       
+
   delay(500);
 }
 

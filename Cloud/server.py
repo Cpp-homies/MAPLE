@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, session
+from flask import Flask, jsonify, session, request
 # from celery import Celery
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, marshal, fields
 from flask_sqlalchemy import SQLAlchemy
@@ -49,6 +49,15 @@ sensor_put_args.add_argument('temp', type=str, help='Temperature not specified',
 sensor_put_args.add_argument('air_humid', type=str, help='Air humidity not specified', required=True)
 sensor_put_args.add_argument('soil_humid', type=str, help='Soil humidity not specified', required=True)
 
+# argument parser for ESP's put
+sensor_esp_put_args = reqparse.RequestParser()
+sensor_esp_put_args.add_argument('user_id', type=str, help='User ID not specified', required=True)
+sensor_esp_put_args.add_argument('password', type=str, help='Password not specified', required=True)
+sensor_esp_put_args.add_argument('temp', type=str, help='Temperature not specified', required=True)
+sensor_esp_put_args.add_argument('air_humid', type=str, help='Air humidity not specified', required=True)
+sensor_esp_put_args.add_argument('soil_humid', type=str, help='Soil humidity not specified', required=True)
+sensor_esp_put_args.add_argument('time', type=str, help='Timestamp not specified', required=False)
+
 # argument parser for "live data" put
 sensor_live_put_args = reqparse.RequestParser()
 sensor_live_put_args.add_argument('time', type=str, help='Timestamp not specified', required=True)
@@ -62,6 +71,7 @@ sensor_update_args = reqparse.RequestParser()
 sensor_update_args.add_argument('temp', type=str, help='Temperature not specified', required=False)
 sensor_update_args.add_argument('air_humid', type=str, help='Humidity not specified', required=False)
 sensor_update_args.add_argument('soil_humid', type=str, help='Humidity not specified', required=False)
+
 
 
 # fields for serialization
@@ -93,8 +103,9 @@ def wait_until(cond, timeout):
 
 # A class to represent a client and related temporary data to that client
 class Client():
-    def __init__(self, user_id):
+    def __init__(self, user_id, password):
         self.user_id = user_id
+        self.password = password
         self.live_data = {} # the most recently updated live data for this client
         self.esp_reqs = [] # the list of request for the esp (device) of this client
         self.esp_req_served = [] # flag that indicates if the most recent request for this client has been served or not
@@ -117,6 +128,9 @@ class Client():
     # Raise the esp_req_served flag
     def raise_esp_req_served(self):
         self.esp_req_served.append(True)
+    
+    def lower_esp_req_served(self):
+        del self.esp_req_served[:]
 
 
 
@@ -137,6 +151,7 @@ clients = []
 
 # A list of authenticated IP addresses
 authIP = []
+
 # test resource
 class SensorData(Resource):
 
@@ -163,8 +178,8 @@ class SensorData(Resource):
                     print("[INFO] Request to ESP timeout")
                     abort(408, message="Request timeout - no response received from the ESP")
                 else:
-                    client.esp_req_served = False # reset the req_served flag
-                    print(client.live_data)
+                    client.lower_esp_req_served() # reset the req_served flag
+                    # print(client.live_data)
                     return client.live_data
             else:
                 abort(404, message="User ID not found")
@@ -221,10 +236,62 @@ class SensorData(Resource):
                     
                     client.raise_esp_req_served() # raise the esp_req_served flag
 
+                    # print(client.live_data)
                     return client.live_data, 201
                 
                 else:
                     abort(404, message="User ID not found")
+
+            
+            args = sensor_put_args.parse_args()
+            # check whether the timestamp is taken or not
+            result = SensorDataModel.query.filter_by(timestamp=timestamp, user_id=user_id).first()
+            # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
+            #       + args['humid'] + '}')
+            if result:
+                abort(409, message='Timestamp already exist')
+
+            # create a SensorDataModel object and add it to the session
+            data = SensorDataModel(timestamp=timestamp, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
+            db.session.add(data)
+            db.session.commit()
+            return data, 201
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
+
+    # Similar to the normal PUT request but for the ESP, and require a password argument
+    # @marshal_with(resource_fields)#here2
+    @app.route('/esp-req/sensordata/<string:timestamp>', methods=['PUT'])
+    def esp_put(timestamp):
+        # Check if this data access is authorized (by loging in) or not
+        # if not check_user_auth(user_id):
+        #     return {'message': 'Unauthorized access'}, 401
+        try:
+            args = sensor_esp_put_args.parse_args()
+            user_id = args['user_id']
+            client = find_client(clients, user_id)
+            if not client:
+                abort(404, message="User ID not found")
+            else:
+                if client.password != args['password']:
+                    return {'message': 'Unauthorized access'}, 401
+                
+            if timestamp == "live":
+                # Add the data to the live_data dictionary
+                client.live_data["timestamp"] = args['time']
+                client.live_data["user_id"] = user_id
+                client.live_data["temperature"] = float(args["temp"])
+                client.live_data["air_humidity"] = float(args["air_humid"])
+                client.live_data["soil_humidity"] = float(args["soil_humid"])
+                
+                client.raise_esp_req_served() # raise the esp_req_served flag
+
+                # print(client.live_data)
+                return client.live_data, 201
+            
+            else:
+                abort(404, message="User ID not found")
 
             
             args = sensor_put_args.parse_args()
@@ -304,16 +371,24 @@ class SensorData(Resource):
         return jsonify(data_list)
     
     # GET method to get the next request for the ESP to execute
-    @app.route('/request-to-esp/<string:user_id>', methods=['GET'])
-    def get_esp_request(user_id):
-        # Check if this data access is authorized (by loging in) or not
-        if not check_user_auth(user_id):
-            return {'message': 'Unauthorized access'}, 401
+    @app.route('/request-to-esp/<string:user_id>/<string:password>', methods=['GET'])
+    def get_esp_request(user_id, password):
+        # # Check if this data access is authorized (by loging in) or not
+        # auth_user = get_ip_auth_user(request.remote_addr, authIP)
+        
+        # if not check_user_auth(user_id):
+        #     return {'message': 'Unauthorized access'}, 401
+        
         client = find_client(clients, user_id)
-        if client:
-            return client.pop_esp_req()
-        else:
+        if not client:
             abort(404, message="User ID not found")
+        else:
+            if client.password == password:
+                return client.pop_esp_req()
+            else:
+                return {'message': 'Unauthorized access'}, 401
+        # else:
+        #     abort(404, message="User ID not found")
         
 
     # @marshal_with(resource_fields)    
@@ -335,15 +410,27 @@ class SensorData(Resource):
     #     return {'data':'Posted'}
  
 
-## Authentication code
+########################
+# Authentication code
+########################
 # Helper functions
 
 # Function that checks if the user is authenticated or not
 def check_user_auth(user_id):
+    # print(user_id)
+    # print(session.get('auth_user'))
+ 
     if user_id == session.get('auth_user'):
         return True
     return False
 
+# Checks if a given IP is authenticated or not, returns the user that the IP is authenticated for
+def get_ip_auth_user(ip_address, ip_user_list):
+    # Check if the IP address is in the user_list dictionary
+    if ip_address in ip_user_list:
+        return ip_user_list[ip_address]
+    else:
+        return None
 
 # argument parser for put
 login_put_args = reqparse.RequestParser()
@@ -375,8 +462,18 @@ class Authentication(Resource):
                 # Remember that this session has been authenticated for the given user ID
                 session["auth_user"] = args['user_id']
 
-                # Add a new Client() object for this user
-                clients.append(Client(args['user_id']))
+                # Add a new Client() object for this user if it didn't exist yet
+                user_id = args['user_id']
+                if not find_client(clients, user_id):
+                    clients.append(Client(user_id, args['password']))#here
+                    # print(clients)
+
+                # # Add a new IP - User pair to the list of authenticated IP address if it does not exist yet
+                # ip_address = request.remote_addr
+                # if not get_ip_auth_user(ip_address, authIP):
+                #     authIP.append({ip_address: user_id})
+                #     print(authIP)
+
                 return {'status': 1}, 201
             return {'status': 0}, 201
         except ValueError as e:
@@ -410,7 +507,7 @@ class Authentication(Resource):
         
     @app.route('/auth/register', methods=['PUT'])
     # @marshal_with(userAuth_fields)
-    def put_register():#here
+    def put_register():
         try:
             
             args = login_put_args.parse_args()
