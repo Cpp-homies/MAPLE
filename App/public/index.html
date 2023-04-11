@@ -17,30 +17,70 @@
     <div class="header-text">
       <h1>MAPLE:</h1>
       <h2>Modular Automated Plant Life Enclosure</h2>
+
+      <div class="custom-hr" id="custom-hr-header">
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+        <div class="custom-hr-line"></div>
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+        <div class="custom-hr-line"></div>
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+      </div>
+
       <div class="header-buttons">
         <div class="flex" style="float: left;">
           <div class="login-container">
 
-            <button id="register" class="icon-button">
+            <button id="register" class="icon-button" onclick="openRegister()">
               register
             </button> 
             <button id="openLoginPopup" class="icon-button" onclick="openLogin()">
               login
             </button> 
-            
+
+            <!-- Register Popup -->
+            <div class="form-popup" id="registerPopup">
+              <form class="form-container">
+                <div class="block-content">
+                  <h1>Register</h1>
+                  <br>
+      
+                  <label for="register-username"><b>Username</b></label>
+                  <input type="text" placeholder="Enter Username" name="register-username" required>
+      
+                  <label for="register-psw"><b>Password</b></label>
+                  <input type="password" placeholder="Enter Password" name="register-psw" required>
+      
+                  <button type="submit" id="register-submit" class="btn" onclick="register()">Register</button>
+                  <button type="button" id="closeRegisterPopup" class="btn cancel" onclick="closeRegister()">Close</button>
+                </div>
+              </form>
+            </div>
+      
+            <!-- Login Popup -->
             <div class="form-popup" id="loginPopup">
               <form class="form-container">
-                <h1>Login</h1>
-                <br>
-  
-                <label for="username"><b>Username</b></label>
-                <input type="text" placeholder="Enter Username" name="username" required>
-  
-                <label for="psw"><b>Password</b></label>
-                <input type="password" placeholder="Enter Password" name="psw" required>
-  
-                <button type="submit" id="login" class="btn" onclick="login()">Login</button>
-                <button type="button" id="closeLoginPopup" class="btn cancel" onclick="closeLogin()">Close</button>
+                <div class="block-content">
+                  <h1>Login</h1>
+                  <br>
+    
+                  <label for="username"><b>Username</b></label>
+                  <input type="text" placeholder="Enter Username" name="username" required>
+    
+                  <label for="psw"><b>Password</b></label>
+                  <input type="password" placeholder="Enter Password" name="psw" required>
+    
+                  <button type="submit" id="login" class="btn" onclick="login()">Login</button>
+                  <button type="button" id="closeLoginPopup" class="btn cancel" onclick="closeLogin()">Close</button>
+                </div>
               </form>
             </div>
           </div>
@@ -64,7 +104,7 @@
 
     <div class="content">
 
-      <div class="block-small block">
+      <div class="block block-small">
         <div class="block-content">
           <div class="block-title">
             <h3>
@@ -77,7 +117,7 @@
         </div>
       </div>
 
-      <div class="block-small block">
+      <div class="block block-small">
         <div class="block-content">
           <div class="block-title">
             <h3>
@@ -89,7 +129,6 @@
           </div>
         </div>
       </div>
-    </div>
 
     <div class="graph-container">
       <canvas id="temperatureChart"></canvas>
@@ -121,12 +160,32 @@
     document.getElementById("loginPopup").style.display = "none";
   }
 
+  function openRegister() {
+    if (document.getElementById("registerPopup").style.display === "inline-block") {
+      closeLogin();
+      return;
+    } else {
+      document.getElementById("registerPopup").style.display = "inline-block";
+    }
+  }
+  
+  function closeRegister() {
+    document.getElementById("registerPopup").style.display = "none";
+  }
+
   // Close the popup if the user clicks outside of it
   window.addEventListener('click', function(event) {
     var loginPopup = document.getElementById("loginPopup");
+    var registerPopup = document.getElementById("registerPopup");
+  
     if (event.target !== loginPopup && !loginPopup.contains(event.target) && event.target.id !== 'openLoginPopup') {
       closeLogin();
     }
+  
+    if (event.target !== registerPopup && !registerPopup.contains(event.target) && event.target.id !== 'register') {
+      closeRegister();
+    }
   });
+  
 </script>
 </html>

@@ -1,6 +1,8 @@
+/* Variables */
 :root {
     --LightColor1: rgb(213, 223, 211);
     --LightColor2: rgb(235, 255, 242);
+    --LightGrayColor1: rgb(180, 180, 180);
     --MediumLightColor1: rgb(125, 211, 114);
     --MediumColor1: rgb(116, 184, 107);
     --MediumDarkColor1: rgb(63, 112, 57);
@@ -14,6 +16,7 @@
     --Width: 1200px;
 }
 
+/* Reset and global styles */
 * {
     margin: 0;
     padding: 0;
@@ -21,20 +24,20 @@
 }
 
 html {
-    word-break:normal;
-    font-family: 'Roboto', sans-serif;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    box-sizing: border-box;
-    line-height: 1.5;
-    font-weight: 400;
-    color: white;
+    background-attachment: fixed;
     background-color: var(--DarkColor2);
+    background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
-    background-attachment: fixed;
-    background-position: center;
+    border: 0;
+    box-sizing: border-box;
+    color: white;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 400;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+    word-break: normal;
 }
 
 body{
@@ -42,20 +45,22 @@ body{
     height: 100vh;
 }
 
+/* Main layout */
 .main {
     margin: 0 auto;
+    max-width: var(--Width);
     padding: 1rem;
-    max-width: 1200px;
-}
+} 
 
+/* Header */
 header {
-    padding: 1rem;
+    align-items: center;
     background-color: var(--DarkColor1);
     color: var(--LightColor1);
     display: flex;
-    justify-content: center;
-    align-items: center;
     flex-direction: column;
+    justify-content: center;
+    padding: 1rem;
 }
 
 header h1 {
@@ -64,8 +69,12 @@ header h1 {
 }
 
 header h2 {
-    font-size: 2rem;
     display: inline-block;
+    font-size: 2rem;
+}
+
+#custom-hr-header {
+    margin-bottom: 2rem;
 }
 
 header .header-buttons {
@@ -78,24 +87,23 @@ header .header-buttons p {
 }
 
 .flex {
-    display: flex;
-    justify-content: center;
     align-items: center;
+    display: flex;
     float: right;
+    justify-content: center;
 }
 
 .header-text {
-    max-width: var(--Width);
-    width: 100%;
     margin: 0 auto;
+    max-width: var(--Width);
     text-align: left;
+    width: 100%;
 }
 
+
+/* Content */
 .content {
-    display: block;
     text-align: center;
-    max-width: 100%;
-    width: var(--Width);
 }
 
 h3 {
@@ -103,29 +111,143 @@ h3 {
 }
 
 .block {
-    font-size: 1.5rem;
-    margin: 10px;
-    display: inline-block;
-    vertical-align: top;
-    overflow: hidden;
-    background-color: var(--DarkColor1);
-    border-radius: 5px;
-    display: inline-flex;
-    justify-content: center;
     align-items: center;
+    background-color: var(--DarkColor1);
+    border-radius: 3px;
+    display: inline-block;
+    display: inline-flex;
+    font-size: 1.5rem;
+    justify-content: center;
+    margin: 10px;
+    overflow: hidden;
+    position: relative;
+    vertical-align: top;
 }
 
 .block-small {
-    width: 170px;
-    height: 170px;
+    height: 220px;
+    width: 220px;
 }
 
+/* Borders */  
+.border-top,
+.border-bottom,
+.border-left,
+.border-right {
+    position: absolute;
+}
+  
+.border-top {
+    top: 0;
+    left: 0;
+    width: 100%;
+}
+
+.border-bottom {
+    bottom: 0;
+    left: 0;
+    width: 100%;
+}
+
+.border-left {
+    height: 100%;
+    left: 0;
+    top: 0;
+}
+
+.border-right {
+    height: 100%;
+    right: 0;
+    top: 0;
+}
+
+.custom-hr,
+.custom-vr {
+    display: flex;
+    position: relative;
+}
+
+.custom-hr {
+    align-items: center;
+    margin: 0;
+    width: 100%;
+}
+
+.custom-vr {
+    align-items: center;
+    flex-direction: column;
+    height: 100%;
+    margin: 0;
+}
+
+.custom-vr-middle {
+    flex-direction: column;
+}
+
+.custom-hr,
+.custom-vr {
+    align-items: center;
+    display: flex;
+    margin: 0;
+    width: 100%;
+}
+  
+.custom-hr-line {
+    background-color: var(--LightGrayColor1);
+    flex-grow: 1;
+    height: 8px;
+}
+
+.custom-vr-line {
+    background-color: var(--LightGrayColor1);
+    flex-grow: 1;
+    width: 8px;
+}
+  
+.custom-hr-middle {
+    align-items: center;
+    background-color: white;
+    border-radius: 3px;
+    display: flex;
+    height: 15px;
+    justify-content: center;
+    margin: 0;
+    width: 30px;
+}
+
+.custom-vr-middle {
+    align-items: center;
+    background-color: white;
+    border-radius: 3px;
+    display: flex;
+    height: 30px;
+    justify-content: center;
+    margin: 0;
+    width: 15px;
+}
+  
+.custom-hr-dot,
+.custom-vr-dot {
+    background-color: gray;
+    border-radius: 50%;
+    height: 5px;
+    margin: 0 5px;
+    width: 6px;
+}
+
+.custom-vr-dot {
+    height: 6px;
+    margin: 5px 0;
+    width: 5px;
+}
+
+/* Loading popup */
 .loading-content {
-    color: var(--DarkColor2);
+    align-items: center;
     background-color: transparent;
+    color: var(--DarkColor2);
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: 10px;
 }
 
@@ -138,6 +260,7 @@ h3 {
     animation: spin 1s linear infinite;
 }
 
+/* Graph container */
 .graph-container {
     position: relative;
     text-align: center;
@@ -154,7 +277,7 @@ h3 {
     justify-content: center;
     align-items: center;
     z-index: 8;
-    border-radius: 5px;
+    border-radius: 3px;
 }
 
 @keyframes spin {
@@ -166,14 +289,14 @@ h3 {
     }
 }
 
-
+/* Buttons */
 button#resetZoom {
     background-color: var(--MediumDarkColor1);
     color: var(--LightColor1);
     font-size: 1rem;
     padding: 10px 20px;
     border: none;
-    border-radius: 5px;
+    border-radius: 3px;
     cursor: pointer;
     transition: background-color 0.3s, color 0.3s;
 }
@@ -191,6 +314,7 @@ button#resetZoom:hover {
     border: none;
     cursor: pointer;
     padding: 0px 12px;
+    font-size: 1.2rem;
 }
 
 .icon-button:hover {
@@ -201,32 +325,29 @@ button#resetZoom:hover {
     margin-right: 6px;
 }
 
+/* Login container */
 .login-container {
     position: relative;
     display: inline-block;
 }
 
-/* The popup form - hidden by default */
 .form-popup {
-    color: var(--MediumColor1);
+    background-color: white;
+    color: var(--MediumLightColor1);
     display: none;
     position: absolute;
-    top: calc(100% + 10px); /* Position it below the button */
+    top: 100%;
     left: 0;
-    max-width: 300px;
+    max-width: 400px;
     width: 80vw;
-    border: 3px solid #f1f1f1;
     z-index: 9;
 }
 
 
-/* Add styles to the form container */
 .form-container {
-    padding: 10px;
-    background-color: white;
+    padding: 2rem;
 }
 
-/* Full-width input fields */
 .form-container input[type=text], .form-container input[type=password] {
     width: 100%;
     padding: 15px;
@@ -235,13 +356,11 @@ button#resetZoom:hover {
     background: #f1f1f1;
 }
 
-/* When the inputs get focus, do something */
 .form-container input[type=text]:focus, .form-container input[type=password]:focus {
     background-color: var(--LightColor1);
     outline: none;
 }
 
-/* Set a style for the submit/login button */
 .form-container .btn {
     background-color: var(--MediumDarkColor1);
     color: white;
@@ -253,18 +372,16 @@ button#resetZoom:hover {
     opacity: 0.8;
 }
 
-/* Add a red background color to the cancel button */
 .form-container .cancel {
     background-color:var(--HighLightColor1);
 }
 
-/* Add some hover effects to buttons */
 .form-container .btn:hover, .open-button:hover {
     opacity: 1;
 }
 
 
-/* Mobile syles */
+/* Mobile styles */
 @media screen and (max-width: 600px) {
     header {
         height: 30vh;
@@ -275,10 +392,6 @@ button#resetZoom:hover {
     header h2 {
         font-size: 1.5rem;
     }
-}
-
-/* Small phone styles */
-@media screen and (max-width: 400px) {
     header {
         margin: 0;
     }
@@ -286,4 +399,8 @@ button#resetZoom:hover {
         width: 100%;
         margin: 10px 0;
     }
+}
+
+/* Small phone styles */
+@media screen and (max-width: 400px) {
 }
