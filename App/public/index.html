@@ -18,6 +18,34 @@
       <h1>MAPLE:</h1>
       <h2>Modular Automated Plant Life Enclosure</h2>
       <div class="header-buttons">
+        <div class="flex" style="float: left;">
+          <div class="login-container">
+
+            <button id="register" class="icon-button">
+              register
+            </button> 
+            <button id="openLoginPopup" class="icon-button" onclick="openLogin()">
+              login
+            </button> 
+            
+            <div class="form-popup" id="loginPopup">
+              <form class="form-container">
+                <h1>Login</h1>
+                <br>
+  
+                <label for="username"><b>Username</b></label>
+                <input type="text" placeholder="Enter Username" name="username" required>
+  
+                <label for="psw"><b>Password</b></label>
+                <input type="password" placeholder="Enter Password" name="psw" required>
+  
+                <button type="submit" id="login" class="btn" onclick="login()">Login</button>
+                <button type="button" id="closeLoginPopup" class="btn cancel" onclick="closeLogin()">Close</button>
+              </form>
+            </div>
+          </div>
+
+        </div>
         <div class="flex">
           <button id="requestData" class="icon-button">
             <span class="material-symbols-outlined">
@@ -79,4 +107,26 @@
 </body>
 
 <script src="/main.js"></script>
+<script>
+  function openLogin() {
+    if (document.getElementById("loginPopup").style.display === "inline-block") {
+      closeLogin();
+      return;
+    } else {
+      document.getElementById("loginPopup").style.display = "inline-block";
+    }
+  }
+  
+  function closeLogin() {
+    document.getElementById("loginPopup").style.display = "none";
+  }
+
+  // Close the popup if the user clicks outside of it
+  window.addEventListener('click', function(event) {
+    var loginPopup = document.getElementById("loginPopup");
+    if (event.target !== loginPopup && !loginPopup.contains(event.target) && event.target.id !== 'openLoginPopup') {
+      closeLogin();
+    }
+  });
+</script>
 </html>

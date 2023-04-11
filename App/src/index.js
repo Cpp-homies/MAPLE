@@ -209,10 +209,12 @@ async function active_fetchdata(){
     document.getElementById('loading-popup').style.display = 'none';
 }
 
+// Zoom reset button
 document.getElementById('resetZoom').addEventListener('click', () => {
     temperatureChart.resetZoom();
 });
 
+// Fetch data button
 document.getElementById('requestData').addEventListener('click', () => {
     active_fetchdata();
 });

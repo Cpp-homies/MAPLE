@@ -10,6 +10,7 @@ module.exports = {
     devServer: {
         static: path.join(__dirname, 'public'),
         compress: true,
-        port: 9000,
+        port: 80,
+        allowedHosts: ['.kovanen.io']
     }
 };
