@@ -73,9 +73,9 @@ void IRAM_ATTR handleLoop() {
 
 unsigned long previousMillis = 0;
 const long interval = 30000;
-// String BASE_URL = "https://cloud.kovanen.io/";
+String BASE_URL = "https://cloud.kovanen.io/";
 // String BASE_URL = "https://mapleplantapi.azurewebsites.net/";
-String BASE_URL = "http://10.100.37.238:8001/";
+// String BASE_URL = "http://10.0.0.6:8001/";
 
 
 #define ESP_DRD_USE_SPIFFS true
@@ -88,6 +88,10 @@ bool shouldSaveConfig = false;
 // Variables to hold data from custom textboxes
 char usernameString[50] = "Username";
 char passwordString[50] = "Password";
+
+// The hashedString and password
+String hashedUsername;
+String hashedPassword;
  
 // Define WiFiManager Object
 WiFiManager wm;
@@ -100,7 +104,7 @@ TaskHandle_t listenerHandle;
 // return the HTTP response code, and change the JSON document requestArgs to contain any input arguments for the request (if any)
 int getNewRequest(DynamicJsonDocument *requestArgs) {
     // Create the address
-    String address = BASE_URL + "request-to-esp";
+    String address = BASE_URL + "request-to-esp/" + hashedUsername;
     HTTPClient http;
     http.begin(address);
     Serial.println("Sending request to " + address);
@@ -125,6 +129,17 @@ int getNewRequest(DynamicJsonDocument *requestArgs) {
 
 // a mini server that check for new data requests from the cloud
 void Listener( void * pvParameters ){
+  // The setup code for the listener
+  // login to the cloud
+  int loginStatus = cloudLogin(hashedUsername, hashedPassword);
+
+  if (loginStatus == 1) {
+    Serial.println("Cloud authentication completed for core 0");
+  } 
+  else {
+    Serial.println("Cloud authentication failed for core 0");
+  }
+
   // unsigned long listenerPreviousMillis = 0;
   // const long listeningInterval = 5000;
   // an infinite loop equivalent to the void loop() function on the main core
@@ -301,6 +316,50 @@ void sendLiveData(float temp, float airHumid, float soilHumid) {
 
   return hashed_str;
 }
+
+// Send a (hashed) pair of username and password to the cloud
+// Return the status code: 0 == fail, 1 == succeed
+int cloudLogin(String hashedUsername, String hashedPassword) {
+  // hash the username and password
+  // String hashedUsername = hashString(username);
+  // String hashedPassword = hashString(password);
+
+  // Create a JSON payload with the username and password
+  // StaticJsonDocument<128> jsonPayload;
+  // jsonPayload["user_id"] = hashedUsername;
+  // jsonPayload["password"] = hashedPassword;
+
+  // Serialize the JSON payload to a string
+  // String payloadString;
+  // serializeJson(jsonPayload, payloadString);
+  
+  // Create the address
+  String address = BASE_URL + "auth/login?user_id=" + hashedUsername + "&password=" + hashedPassword;
+  HTTPClient http;
+  http.begin(address);
+  Serial.println("Sending request to " + address);
+  // Send HTTP GET request to the cloud to check for incoming request
+  int httpResponseCode = http.GET();
+
+  const size_t capacity = JSON_OBJECT_SIZE(1) + 20;
+  DynamicJsonDocument requestArgs(capacity);
+  if (httpResponseCode > 0) {
+      // Parse the response JSON
+      String response = http.getString();
+      DeserializationError error = deserializeJson(requestArgs, response);
+      if (error) {
+          Serial.println("Failed to parse JSON response");
+          http.end();
+          return -1;
+      }
+      http.end();
+      int loginStatus = requestArgs["status"];
+      return loginStatus;
+  } else {
+      http.end();
+      return -1;
+  }
+}
 ////////////////////////////////////////////
 
 
@@ -344,6 +403,20 @@ void setup() {
   display.setTextColor(WHITE);
 
   configWifi();
+
+  // Hash the username and password obtained from the user and store it to the global variables
+  hashedUsername = hashString(usernameString);
+  hashedPassword = hashString(passwordString);
+
+  // login to the cloud
+  int loginStatus = cloudLogin(hashedUsername, hashedPassword);
+
+  if (loginStatus == 1) {
+    Serial.println("Cloud authentication completed for core 1");
+  } 
+  else {
+    Serial.println("Cloud authentication failed for core 1");
+  }
   
   initSDcard();
   

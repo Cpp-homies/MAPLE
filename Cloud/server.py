@@ -8,7 +8,7 @@ import asyncio
 
 # Define HOST and PORT
 HOST = '0.0.0.0'
-PORT = 8001
+PORT = 8000
 
 # An enum to use as a shorthand for the request codes for ESP requests
 class ESP_Req_Code(Enum):
@@ -134,6 +134,9 @@ def find_client(user_list, user_id):
     
 # A list of clients (users)
 clients = []
+
+# A list of authenticated IP addresses
+authIP = []
 # test resource
 class SensorData(Resource):
 
