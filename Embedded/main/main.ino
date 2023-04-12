@@ -189,13 +189,13 @@ void Listener( void * pvParameters ){
             * NOTE!! To be replace with real temp and humid, the random numbers are just for testing
             *
             */
-            int randTemp = random() % 40;
-            int randAirHumid = random() % 30;
-            int randSoilHumid = random() % 100;
+            float randTemp = bme.readTemperature();
+            float randAirHumid = bme.readHumidity();
+            float randSoilHumid = convertToSoilHumidity(analogRead(SOIL_SENSOR));
             /*
             ****************************/
             
-            sendLiveData((float)randTemp, (float)randAirHumid, (float)randSoilHumid);
+            sendLiveData(randTemp, randAirHumid, randSoilHumid);
             
             break;
           }
@@ -909,7 +909,7 @@ void loop() {
   }
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    //sendData(bme.readTemperature(), bme.readHumidity());    
+    sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
   }
   checkAirHumidity();
   
