@@ -128,10 +128,10 @@ int getNewRequest(DynamicJsonDocument *requestArgs) {
             Serial.println("Failed to parse JSON response");
             return -1;
         }
-        // http.end();
+        http.end();
         return httpResponseCode;
     } else {
-        // http.end();;
+        http.end();
         return httpResponseCode;
     }
 }
@@ -254,7 +254,7 @@ void sendData(float temp, float airHumid, float soilHumid) {
       Serial.print("Error sending request: ");
       Serial.println(httpResponseCode);
     }
-    // http.end();;
+    http.end();
 }
 
 // function for sending live data to /sensordata/live/ resource on cloud server
@@ -297,7 +297,7 @@ void sendLiveData(float temp, float airHumid, float soilHumid) {
       Serial.print("Error sending request: ");
       Serial.println(httpResponseCode);
     }
-    // http.end();;
+    http.end();
 }
 
 // Function to hash a given string using SHA-256
@@ -366,14 +366,14 @@ int cloudLogin(String hashedUsername, String hashedPassword) {
       DeserializationError error = deserializeJson(requestArgs, response);
       if (error) {
           Serial.println("Failed to parse JSON response");
-          // http.end();;
+          http.end();
           return -1;
       }
-      // http.end();;
+      http.end();
       int loginStatus = requestArgs["status"];
       return loginStatus;
   } else {
-      // http.end();
+      http.end();
       return -1;
   }
 }
@@ -903,10 +903,10 @@ void loop() {
   if (needsWater()){
     //pumpWater();
   }
-  if (currentMillis - previousMillis >= 5000) {
-    previousMillis = currentMillis;
-    logData();   
-  }
+  // if (currentMillis - previousMillis >= 5000) {
+  //   previousMillis = currentMillis;
+  //   logData();   
+  // }
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
