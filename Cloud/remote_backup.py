@@ -2,7 +2,10 @@ import os
 import pathlib
 import mimetypes
 import datetime
+import time
 from google.cloud import storage # pip install google-cloud-storage
+
+BACKUP_INTERVAL = 0.016  # The backup interval in hours
 
 STORAGE_CLASSES = ('STANDARD', 'NEARLINE', 'COLDLINE', 'ARCHIVE')
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'Keys/sunlit-vortex-383512-87d7f5a8052e.json'
@@ -82,8 +85,14 @@ storage_client = storage.Client()
 gcs = GCStorage(storage_client)
 
 
-# Backup the data
-back_up_file(gcs, bucket_name, 'sensor_data', str(files_folder) + "/sensor_data.db")
+# Periodically backup the data
+while True:
+    current_time = time.strftime("%Y-%m-%d-%H-%M-%S")
+    # if current_time.endswith("00-00-00"):
+    back_up_file(gcs, bucket_name, 'sensor_data', str(files_folder) + "/sensor_data.db")
+    time.sleep(3600 * BACKUP_INTERVAL)
+
+
 
 
 
