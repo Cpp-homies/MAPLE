@@ -15,9 +15,6 @@
 #include <WiFi.h>
 #include "time.h"
 
-// REPLACE WITH YOUR NETWORK CREDENTIALS
-const char* ssid = "Stanley's toilet";
-const char* password = "81053851414";
 
 // REPLACE WITH YOUR TIMEZONE STRING: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
@@ -43,6 +40,7 @@ String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
 
 // Stores the camera configuration parameters
 camera_config_t config;
+
 
 // Initializes the camera
 void configInitCamera(){
@@ -91,7 +89,8 @@ void configInitCamera(){
 void  initWiFi(){
   bool connected = false;
   String ssid = "";
-  String psswd = "";
+  String pass = "";
+  bool psswd = false;
   while(!connected){
     if (Serial.available())
   {
@@ -110,21 +109,23 @@ void  initWiFi(){
           Serial.println(ssid);
         }
       }
-      while(psswd==""){
+      while(!psswd){
         if (Serial.available()){
-          psswd = Serial.readStringUntil('\n');
-          psswd.trim();
+          pass = Serial.readStringUntil('\n');
+          pass.trim();
           Serial.println("Got something:");
-          Serial.println(psswd);
+          Serial.println(pass);
+          psswd = true;          
         }
       }
-      WiFi.begin(ssid.c_str(), psswd.c_str());
+      WiFi.begin(ssid.c_str(), pass.c_str());
       Serial.println("Connecting Wifi");
       while (WiFi.status() != WL_CONNECTED) {
-      Serial.print(".");
-      delay(500);
+        Serial.print(".");
+        delay(500);
+        
+      }
       connected = true;
-  }
     }
     
   }

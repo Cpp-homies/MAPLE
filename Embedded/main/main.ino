@@ -6,7 +6,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 #include "Button2.h" //  https://github.com/LennartHennigs
-#include "ESPRotary.h"
+#include "ESPRotary.h" //  https://github.com/LennartHennigs
 #include <WiFi.h>
 #include "mbedtls/md.h"
 #include <HTTPClient.h>
@@ -21,66 +21,66 @@
 #include <WiFiManager.h>
 #include "SD.h"
 #include "SPI.h"
+#include <HardwareSerial.h>
 
-
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+//OLED
+#define SCREEN_WIDTH 128 
+#define SCREEN_HEIGHT 64 
+//Wifi config
+#define ESP_DRD_USE_SPIFFS true
+#define JSON_CONFIG_FILE "/config_maple_user.json"
+//rotary
 #define CLICKS_PER_STEP   4
+//GPIO pins
 #define ROTARY_PIN1	0
 #define ROTARY_PIN2	2
 #define BUTTON_PIN	15
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+#define LIGHT_SENSOR 34
+#define SOIL_SENSOR 35
+#define DIR 27
+#define STEP 14
+#define LIGHTS 33
+#define FAN 32
+#define PUMP_POWER 12
+#define RX_PORT2 16
+#define TX_PORT2 17
 
-Adafruit_BME280 bme;
-
-
-
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
-
-#include <WiFi.h>
-#include <HTTPClient.h>
-
-int LIGHT_SENSOR = 34;
-int SOIL_SENSOR = 35;
-const int DIR = 27;
-const int STEP = 14;
-int LIGHTS = 33;
-int FAN = 32;
-int PUMP_POWER = 12;
+//PWM variables
 int freq = 2000;
 int pwmResolution = 8;
 int pwmChannel_0 = 0;
 int pwmChannel_2 = 2;
+
+uint16_t analogWet = 1500;
+uint16_t analogDry = 3000;
 uint8_t brightness;
 int pumpSpeed = 1500;
 int fanSpeed = 240; //190-255
 bool fanOn = false;
-uint8_t screenMode = 0;
+uint8_t screenMode = 0; //to define what to show on screen
+const char *dataFile = "/mapleData.csv"; //data logging file path
+hw_timer_t *timer = NULL; //rotary timer
 
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+Adafruit_BME280 bme;
+HardwareSerial SerialPort(2); //UART2
 ESPRotary r;
 Button2 b;
-hw_timer_t *timer = NULL;
 
+
+//Rottary handler
 void IRAM_ATTR handleLoop() {
   r.loop();
   b.loop();
 }
+
 
 unsigned long previousMillis = 0;
 const long interval = 30000;
 String BASE_URL = "https://cloud.kovanen.io/";
 // String BASE_URL = "https://mapleplantapi.azurewebsites.net/";
 // String BASE_URL = "http://10.0.0.6:8001/";
-
-
-#define ESP_DRD_USE_SPIFFS true
-// JSON configuration file
-#define JSON_CONFIG_FILE "/config_maple_user.json"
  
 // Flag for saving config data
 bool shouldSaveConfig = false;
@@ -382,9 +382,16 @@ int cloudLogin(String hashedUsername, String hashedPassword) {
 
 
 void setup() {
+
   http.setReuse(true);// reuse for all connection in order to authenticate one time only
+
+  //Serial for PC connection
   Serial.begin(115200);
   while(!Serial){}
+  //Serial for ESP CAM communitation
+  SerialPort.begin(115200, SERIAL_8N1, RX_PORT2, TX_PORT2);
+  while (!SerialPort){}
+
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     //for(;;);
@@ -406,19 +413,15 @@ void setup() {
 
   digitalWrite(PUMP_POWER, LOW);
 
-  // configure LED PWM functionalitites
+  // configure PWM functionalitites
   ledcSetup(pwmChannel_0, freq, pwmResolution);
   ledcSetup(pwmChannel_2, freq, pwmResolution);
-
-  
   // attach the channel to the GPIO to be controlled
   ledcAttachPin(LIGHTS, pwmChannel_0);
   ledcAttachPin(FAN, pwmChannel_2);
   
-  
-  delay(2000);
-  display.clearDisplay();
   display.setTextColor(WHITE);
+  displayBoot();
 
   configWifi();
 
@@ -439,25 +442,8 @@ void setup() {
   
   initSDcard();
   
-  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP);
-  //r.setChangedHandler(rotate);
-  //r.setLeftRotationHandler(showDirection);
-  //r.setRightRotationHandler(showDirection);
-  r.setRightRotationHandler(screenModeSoil);
-  r.setLeftRotationHandler(screenModeAir); 
-  //r.setIncrement(1);
-  b.begin(BUTTON_PIN);
-  b.setTapHandler(click);
-  b.setLongClickHandler(resetPosition);
-
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &handleLoop, true);
-  timerAlarmWrite(timer, 3000, true); // every 0.1 seconds
-  timerAlarmEnable(timer);
-  //r.enableSpeedup(true);
-  //r.setSpeedupIncrement(15);
-  //r.setSpeedupInterval(2500);
-
+  initRotary();
+  
   // execute the listener server on a different core (core 0)
   xTaskCreatePinnedToCore(
                     Listener,   /* Task function. */
@@ -466,38 +452,45 @@ void setup() {
                     NULL,        /* parameter of the task */
                     1,           /* priority of the task */
                     &listenerHandle,      /* Task handle to keep track of created task */
-                    0);          /* pin task to core 0 */       
-
-  delay(500);
+                    0);          /* pin task to core 0 */  
+  
 }
 
 /////////////////////////////////////////////////////////////////
 //Rotary methods
 
+void initRotary(){
+  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP);
+  r.setRightRotationHandler(screenModeSoil);
+  r.setLeftRotationHandler(screenModeAir); 
+  b.begin(BUTTON_PIN);
+  b.setTapHandler(click);
+  b.setLongClickHandler(resetPosition);
+
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &handleLoop, true);
+  timerAlarmWrite(timer, 3000, true); // every 0.3 seconds
+  timerAlarmEnable(timer);
 
 
+       
 
+
+}
+
+//when turned left
 void screenModeAir(ESPRotary& r){
   screenMode = 0;
   Serial.println(r.directionToString(r.getDirection()));
 
 }
 
+//when turned right
 void screenModeSoil(ESPRotary& r){
   screenMode = 1;
   Serial.println(r.directionToString(r.getDirection()));
 }
 
-// on change
-void rotate(ESPRotary& r) {
-   Serial.println(r.getPosition());
-}
-
-// on left or right rotation
-void showDirection(ESPRotary& r) {
-  Serial.println(r.directionToString(r.getDirection()));
-}
- 
 // single click
 void click(Button2& btn) {
   Serial.println("Click!");
@@ -508,164 +501,31 @@ void resetPosition(Button2& btn) {
   r.resetPosition();
   Serial.println("Reset!");
 }
-
 /////////////////////////////////////////////////////////////////
+//SDcard methods
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
-    Serial.printf("Listing directory: %s\n", dirname);
-
-    File root = fs.open(dirname);
-    if(!root){
-        Serial.println("Failed to open directory");
-        return;
-    }
-    if(!root.isDirectory()){
-        Serial.println("Not a directory");
-        return;
-    }
-
-    File file = root.openNextFile();
-    while(file){
-        if(file.isDirectory()){
-            Serial.print("  DIR : ");
-            Serial.println(file.name());
-            if(levels){
-                listDir(fs, file.path(), levels -1);
-            }
+void logData(){
+  File file = SD.open(dataFile);
+  if(!file){
+    file = SD.open(dataFile, FILE_WRITE);
+        if(!file){
+          Serial.println("Failed to open file for data logging");
+          return;
         } else {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("  SIZE: ");
-            Serial.println(file.size());
+          file.println("AirTemp,AirHumidity,SoilHumidity");
+          
         }
-        file = root.openNextFile();
-    }
-}
-
-void createDir(fs::FS &fs, const char * path){
-    Serial.printf("Creating Dir: %s\n", path);
-    if(fs.mkdir(path)){
-        Serial.println("Dir created");
-    } else {
-        Serial.println("mkdir failed");
-    }
-}
-
-void removeDir(fs::FS &fs, const char * path){
-    Serial.printf("Removing Dir: %s\n", path);
-    if(fs.rmdir(path)){
-        Serial.println("Dir removed");
-    } else {
-        Serial.println("rmdir failed");
-    }
-}
-
-void readFile(fs::FS &fs, const char * path){
-    Serial.printf("Reading file: %s\n", path);
-
-    File file = fs.open(path);
+  }
+  file.close();
+  file = SD.open(dataFile, FILE_APPEND);
     if(!file){
-        Serial.println("Failed to open file for reading");
-        return;
+        Serial.println("Failed to open file for data logging");
     }
-
-    Serial.print("Read from file: ");
-    while(file.available()){
-        Serial.write(file.read());
-    }
-    file.close();
-}
-
-void writeFile(fs::FS &fs, const char * path, const char * message){
-    Serial.printf("Writing file: %s\n", path);
-
-    File file = fs.open(path, FILE_WRITE);
-    if(!file){
-        Serial.println("Failed to open file for writing");
-        return;
-    }
-    if(file.print(message)){
-        Serial.println("File written");
-    } else {
-        Serial.println("Write failed");
-    }
-    file.close();
-}
-
-void appendFile(fs::FS &fs, const char * path, const char * message){
-    Serial.printf("Appending to file: %s\n", path);
-
-    File file = fs.open(path, FILE_APPEND);
-    if(!file){
-        Serial.println("Failed to open file for appending");
-        return;
-    }
-    if(file.print(message)){
-        Serial.println("Message appended");
-    } else {
-        Serial.println("Append failed");
-    }
-    file.close();
-}
-
-void renameFile(fs::FS &fs, const char * path1, const char * path2){
-    Serial.printf("Renaming file %s to %s\n", path1, path2);
-    if (fs.rename(path1, path2)) {
-        Serial.println("File renamed");
-    } else {
-        Serial.println("Rename failed");
-    }
-}
-
-void deleteFile(fs::FS &fs, const char * path){
-    Serial.printf("Deleting file: %s\n", path);
-    if(fs.remove(path)){
-        Serial.println("File deleted");
-    } else {
-        Serial.println("Delete failed");
-    }
-}
-
-void testFileIO(fs::FS &fs, const char * path){
-    File file = fs.open(path);
-    static uint8_t buf[512];
-    size_t len = 0;
-    uint32_t start = millis();
-    uint32_t end = start;
-    if(file){
-        len = file.size();
-        size_t flen = len;
-        start = millis();
-        while(len){
-            size_t toRead = len;
-            if(toRead > 512){
-                toRead = 512;
-            }
-            file.read(buf, toRead);
-            len -= toRead;
-        }
-        end = millis() - start;
-        Serial.printf("%u bytes read for %u ms\n", flen, end);
-        file.close();
-    } else {
-        Serial.println("Failed to open file for reading");
-    }
-
-
-    file = fs.open(path, FILE_WRITE);
-    if(!file){
-        Serial.println("Failed to open file for writing");
-        return;
-    }
-
-    size_t i;
-    start = millis();
-    for(i=0; i<2048; i++){
-        file.write(buf, 512);
-    }
-    end = millis() - start;
-    Serial.printf("%u bytes written for %u ms\n", 2048 * 512, end);
-    file.close();
+  String toWrite = String(bme.readTemperature())+","+ String(bme.readHumidity())+","+ String(analogRead(SOIL_SENSOR));
+  char buffer[toWrite.length()+1];
+  toWrite.toCharArray(buffer, toWrite.length()+1);
+  file.println(buffer);
+  file.close();
 }
 
 void initSDcard(){
@@ -693,23 +553,10 @@ void initSDcard(){
 
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
     Serial.printf("SD Card Size: %lluMB\n", cardSize);
-    /*
-    listDir(SD, "/", 0);
-    createDir(SD, "/mydir");
-    listDir(SD, "/", 0);
-    removeDir(SD, "/mydir");
-    listDir(SD, "/", 2);
-    writeFile(SD, "/hello.txt", "Hello ");
-    appendFile(SD, "/hello.txt", "World!\n");
-    readFile(SD, "/hello.txt");
-    deleteFile(SD, "/foo.txt");
-    renameFile(SD, "/hello.txt", "/foo.txt");
-    readFile(SD, "/foo.txt");
-    testFileIO(SD, "/test.txt");
-    Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
-    Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
-    */
+    
 }
+/////////////////////////////////////////////////////////////////
+//WiFi manager methods
 // Save Config in JSON format
 void saveConfigFile(){
   Serial.println(F("Saving configuration..."));
@@ -876,14 +723,22 @@ void configWifi() {
   strncpy(passwordString, custom_text_box_password.getValue(), sizeof(passwordString));
   Serial.print("passwordString: ");
   Serial.println(passwordString);
-  /*
-  delay(5000);
-  Serial.println(0);
-  delay(5000);
-  Serial.println(wm.getWiFiSSID());
-  delay(5000);
-  Serial.println(wm.getWiFiPass());
- */
+  
+  delay(1000);
+  SerialPort.println(0);
+  delay(1000);
+  SerialPort.println(wm.getWiFiSSID());
+  delay(1000);
+  String pass = wm.getWiFiPass();
+  Serial.print("Wifi password:");
+  Serial.println(pass);
+  if(pass==""){
+    SerialPort.println(" ");
+  }else{
+    SerialPort.println(pass);    
+  }
+  
+ 
   // Save the custom parameters to FS
   if (shouldSaveConfig)
   {
@@ -892,6 +747,8 @@ void configWifi() {
 
   configTime(0, 0, "pool.ntp.org");
 }
+/////////////////////////////////////////////////////////////////
+//display methods
 
 void displaySoilData(){
   display.clearDisplay();
@@ -901,8 +758,8 @@ void displaySoilData(){
   display.print("Soil humidity:");
   display.setTextSize(2);
   display.setCursor(0,10);
-  display.print("Some %");
-  
+  display.print(convertToSoilHumidity(analogRead(SOIL_SENSOR)));
+  display.print(" %");
   
   // display humidity
   display.setTextSize(1);
@@ -957,6 +814,15 @@ void displayLightIntensity(){
   display.display();
 }
 
+void displayBoot(){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(5, 25);
+  display.print("M.A.P.L.E.");
+  display.display();
+}
+/////////////////////////////////////////////////////////////////
+//self-explanatory
 
 
 
@@ -1019,6 +885,10 @@ void checkAirHumidity(){
   }
 }
 
+float convertToSoilHumidity(uint16_t analogInput){ 
+  return (3050.0-float(analogInput))/15.0;
+}
+
 void loop() {
   
   
@@ -1031,7 +901,11 @@ void loop() {
   adjustLights();
   unsigned long currentMillis = millis();
   if (needsWater()){
-    pumpWater();
+    //pumpWater();
+  }
+  if (currentMillis - previousMillis >= 5000) {
+    previousMillis = currentMillis;
+    logData();   
   }
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
