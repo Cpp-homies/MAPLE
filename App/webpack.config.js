@@ -2,7 +2,7 @@ path = require('path');
 
 module.exports = {
     mode: 'development',
-    entry: ['./src/index.js', './src/borders.js'],
+    entry: ['./src/index.js', './src/borders.js', './src/auth.js'],
     output: {
         filename: 'main.js',
         path: path.resolve(__dirname, 'public'),
@@ -10,7 +10,8 @@ module.exports = {
     devServer: {
         static: path.join(__dirname, 'public'),
         compress: true,
-        port: 80,
-        allowedHosts: ['.kovanen.io']
+        host: '0.0.0.0',
+        port: 6900,
+        allowedHosts: ['maple.kovanen.io']
     }
 };

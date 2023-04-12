@@ -1,8 +1,11 @@
 import Chart from 'chart.js/auto';
 import 'chartjs-adapter-luxon';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import { login_fetch } from './auth.js';
 
 Chart.register(zoomPlugin);
+
+console.log('index.js loaded')
 
 // Set colors from the CSS variables
 const cssVariables = getComputedStyle(document.documentElement);
@@ -20,8 +23,15 @@ const highLightColor1 = cssVariables.getPropertyValue('--HighLightColor1').trim(
 const highLightColor2 = cssVariables.getPropertyValue('--HighLightColor2').trim();
 
 
+const userId = localStorage.getItem('user_id');
+const token = localStorage.getItem('token');
 
-const URL = 'https://cloud.kovanen.io/datatable'
+const URL = `https://cloud.kovanen.io/datatable/${userId}`;
+
+// Login if user ID and token are found in local storage
+if (userId && token) {
+    login_fetch(userId, token);
+}
 
 // Initialize the temperature chart
 const ctx = document.getElementById('temperatureChart').getContext('2d');
@@ -56,17 +66,19 @@ const chartConfig = {
     data: chartData,
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         interaction: {
-          intersect: false,
-          mode: 'index',
+            intersect: false,
+            mode: 'index',
         },
         scales: {
             x: {
                 type: 'time',
                 bounds: 'data',
-                min: new Date().getTime() - 24 * 60 * 60 * 1000,
-                time : {
-                unit: 'hour',
+                min: new Date().getTime() - 10 * 60 * 60 * 1000, // 10 hours ago
+                // max: new Date().getTime(), // Set the maximum x-value to the current time
+                time: {
+                    unit: 'hour',
                     displayFormats: {
                         hour: 'MMM D, HH:mm',
                     },
@@ -114,10 +126,10 @@ const chartConfig = {
                 },
                 zoom: {
                     wheel: {
-                    enabled: true,
+                        enabled: true,
                     },
                     pinch: {
-                    enabled: true,
+                        enabled: true,
                     },
                     mode: 'x',
                 },
@@ -130,8 +142,8 @@ const chartConfig = {
         },
     },
 };
-  
-  
+
+
 
 
 const temperatureChart = new Chart(ctx, chartConfig);
@@ -144,11 +156,16 @@ function updateTemperatureChart(timestamp, temperature, humidity) {
 }
 
 // Fetch data from the server
-async function fetchdata(){
-    await fetch(URL)
+async function fetchdata() {
+    if (!userId) {
+        console.error('No user ID found. Please log in or register first.');
+        return;
+    }
+    await fetch(URL, { credentials: 'include' })
         .then(response => response.json())
         .then(data => {
-            try{
+            console.log(data);
+            try {
                 // reformat the timestamps from YYYY_MM_DD_HH_MM_SS to seconds
                 // first filter out data that is not in correct format
                 data = data.filter(item => {
@@ -158,7 +175,7 @@ async function fetchdata(){
                 data.forEach((item, index) => {
                     const date = item.timestamp.split('_');
                     const year = date[0];
-                    const month = date[1]-1;
+                    const month = date[1] - 1;
                     const day = date[2];
                     const hour = date[3];
                     const minute = date[4];
@@ -170,31 +187,31 @@ async function fetchdata(){
                 data.sort((a, b) => {
                     return -(a.timestamp - b.timestamp);
                 });
-                document.getElementById('air-humidity').innerHTML = Math.floor(data[0].humidity);
+                document.getElementById('air-humidity').innerHTML = Math.floor(data[0].air_humidity);
                 document.getElementById('air-temp').innerHTML = Math.floor(data[0].temperature);
                 document.getElementById('timestamp').innerHTML = new Date(data[0].timestamp).toLocaleString();
-                
+
 
                 // Update the chart with the most recent data
                 const lastTimestamp = chartData.labels[chartData.labels.length - 1];
                 const currentTime = Date.now();
-                const lastweek = currentTime - 7 * 24 * 60 * 60 * 1000;
+                const firstTimestamp = currentTime - 2 * 24 * 60 * 60 * 1000; // 2 days ago
 
                 // If the chart is not empty, only add new data
                 if (lastTimestamp !== undefined) {
                     const newData = data.filter(item => {
-                        return item.timestamp < lastTimestamp && item.timestamp > lastweek;
+                        return item.timestamp < lastTimestamp && item.timestamp > firstTimestamp;
                     });
                     newData.forEach((item) => {
-                        updateTemperatureChart(item.timestamp, item.temperature, item.humidity);
+                        updateTemperatureChart(item.timestamp, item.temperature, item.air_humidity);
                     });
                 } else {
-                    const recentData = data.filter(item => item.timestamp > lastweek);
+                    const recentData = data.filter(item => item.timestamp > firstTimestamp);
                     recentData.forEach((item) => {
-                        updateTemperatureChart(item.timestamp, item.temperature, item.humidity);
+                        updateTemperatureChart(item.timestamp, item.temperature, item.air_humidity);
                     });
                 }
-                
+
             } catch (e) {
                 console.log(e);
             }
@@ -203,7 +220,7 @@ async function fetchdata(){
 
 
 // Initiate the loading popup
-async function active_fetchdata(){
+async function active_fetchdata() {
     document.getElementById('loading-popup').style.display = 'flex';
     await fetchdata();
     document.getElementById('loading-popup').style.display = 'none';
@@ -219,5 +236,28 @@ document.getElementById('requestData').addEventListener('click', () => {
     active_fetchdata();
 });
 
-active_fetchdata();
-const interval = setInterval(fetchdata, 10000);
+let interval;
+
+// Start interval
+export function startInterval() {
+    active_fetchdata();
+    interval = setInterval(fetchdata, 10000);
+}
+
+// Stop interval
+export function stopInterval() {
+    clearInterval(interval);
+}
+
+// Clear the data
+export function clearData() {
+    chartData.labels = [];
+    chartData.datasets[0].data = [];
+    chartData.datasets[1].data = [];
+    temperatureChart.update();
+}
+
+// Start interval if the user is logged in
+if (userId !== null) {
+    startInterval();
+}

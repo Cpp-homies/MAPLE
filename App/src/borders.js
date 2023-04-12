@@ -1,3 +1,5 @@
+console.log('borders.js loaded')
+
 function createCustomBorder(orientation) {
     const border = document.createElement('div');
     border.className = `custom-${orientation}`;

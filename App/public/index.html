@@ -1,191 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,900;1,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,700,0,0" />
-  <link rel="stylesheet" href="styles.css">
-  <link rel="icon" type="image/webp" href="media/maple-logo-dalle-generated.webp">
-  <title>MAPLE: Modular Automated Plant Life Enclosure</title>
-</head>
-<body>
-  <header>
-    <div class="header-text">
-      <h1>MAPLE:</h1>
-      <h2>Modular Automated Plant Life Enclosure</h2>
 
-      <div class="custom-hr" id="custom-hr-header">
-        <div class="custom-hr-middle">
-          <div class="custom-hr-dot"></div>
-          <div class="custom-hr-dot"></div>
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,900;1,900&display=swap"
+      rel="stylesheet">
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,700,0,0" />
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/webp" href="media/maple-logo-dalle-generated.webp">
+    <title>MAPLE: Modular Automated Plant Life Enclosure</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="header-text">
+        <h1>MAPLE:</h1>
+        <h2>Modular Automated Plant Life Enclosure</h2>
+
+        <div class="custom-hr" id="custom-hr-header">
+          <div class="custom-hr-middle">
+            <div class="custom-hr-dot"></div>
+            <div class="custom-hr-dot"></div>
+          </div>
+          <div class="custom-hr-line"></div>
+          <div class="custom-hr-middle">
+            <div class="custom-hr-dot"></div>
+            <div class="custom-hr-dot"></div>
+          </div>
+          <div class="custom-hr-line"></div>
+          <div class="custom-hr-middle">
+            <div class="custom-hr-dot"></div>
+            <div class="custom-hr-dot"></div>
+          </div>
         </div>
-        <div class="custom-hr-line"></div>
-        <div class="custom-hr-middle">
-          <div class="custom-hr-dot"></div>
-          <div class="custom-hr-dot"></div>
-        </div>
-        <div class="custom-hr-line"></div>
-        <div class="custom-hr-middle">
-          <div class="custom-hr-dot"></div>
-          <div class="custom-hr-dot"></div>
-        </div>
-      </div>
 
-      <div class="header-buttons">
-        <div class="flex" style="float: left;">
-          <div class="login-container">
+        <div class="header-buttons">
+          <div class="flex" style="float: left;">
+            <div class="login-container">
 
-            <button id="register" class="icon-button" onclick="openRegister()">
-              register
-            </button> 
-            <button id="openLoginPopup" class="icon-button" onclick="openLogin()">
-              login
-            </button> 
+              <button id="register" class="icon-button" onclick="openRegister()">
+                register
+              </button>
+              <button id="openLoginPopup" class="icon-button" onclick="openLogin()">
+                login
+              </button>
 
-            <!-- Register Popup -->
-            <div class="form-popup" id="registerPopup">
-              <form class="form-container">
-                <div class="block-content">
-                  <h1>Register</h1>
-                  <br>
-      
-                  <label for="register-username"><b>Username</b></label>
-                  <input type="text" placeholder="Enter Username" name="register-username" required>
-      
-                  <label for="register-psw"><b>Password</b></label>
-                  <input type="password" placeholder="Enter Password" name="register-psw" required>
-      
-                  <button type="submit" id="register-submit" class="btn" onclick="register()">Register</button>
-                  <button type="button" id="closeRegisterPopup" class="btn cancel" onclick="closeRegister()">Close</button>
-                </div>
-              </form>
+              <!-- User ID and Logout buttons -->
+              <div class="user-logout-container" id="userLogoutContainer" style="display: none;">
+                <span id="displayUserId"></span>
+                <button id="logout" class="icon-button">
+                  logout
+                </button>
+              </div>
+
+
+              <!-- Register Popup -->
+              <div class="form-popup" id="registerPopup">
+                <form class="form-container">
+                  <div class="block-content">
+                    <h1>Register</h1>
+                    <br>
+
+                    <label for="register-username"><b>Username</b></label>
+                    <input type="text" placeholder="Enter Username" name="register-username" required>
+
+                    <label for="register-psw"><b>Password</b></label>
+                    <input type="password" placeholder="Enter Password" name="register-psw" required>
+
+                    <button type="button" id="register-submit" class="btn">Register</button>
+                    <button type="button" id="closeRegisterPopup" class="btn cancel"
+                      onclick="closeRegister()">Close</button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Login Popup -->
+              <div class="form-popup" id="loginPopup">
+                <form class="form-container">
+                  <div class="block-content">
+                    <h1>Login</h1>
+                    <br>
+
+                    <label for="username"><b>Username</b></label>
+                    <input type="text" placeholder="Enter Username" name="username" required>
+
+                    <label for="psw"><b>Password</b></label>
+                    <input type="password" placeholder="Enter Password" name="psw" required>
+
+                    <button type="button" id="login-submit" class="btn">Login</button>
+                    <button type="button" id="closeLoginPopup" class="btn cancel" onclick="closeLogin()">Close</button>
+                  </div>
+                </form>
+              </div>
             </div>
-      
-            <!-- Login Popup -->
-            <div class="form-popup" id="loginPopup">
-              <form class="form-container">
-                <div class="block-content">
-                  <h1>Login</h1>
-                  <br>
-    
-                  <label for="username"><b>Username</b></label>
-                  <input type="text" placeholder="Enter Username" name="username" required>
-    
-                  <label for="psw"><b>Password</b></label>
-                  <input type="password" placeholder="Enter Password" name="psw" required>
-    
-                  <button type="submit" id="login" class="btn" onclick="login()">Login</button>
-                  <button type="button" id="closeLoginPopup" class="btn cancel" onclick="closeLogin()">Close</button>
-                </div>
-              </form>
+
+            <!-- Success Message Popup -->
+            <div class="success-popup" id="successPopup">
+              <div class="success-content">
+                <p id="successMessage">Success!</p>
+              </div>
+            </div>
+
+          </div>
+          <div class="flex">
+            <button id="requestData" class="icon-button">
+              <span class="material-symbols-outlined">
+                refresh
+              </span>
+            </button>
+            <p>
+              Last App Sync:
+              <span id="timestamp"></span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="main">
+
+      <div class="content">
+
+        <div class="block block-small">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>
+                Air humidity:
+              </h3>
+            </div>
+            <div>
+              <span id="air-humidity">0</span>%
             </div>
           </div>
-
         </div>
-        <div class="flex">
-          <button id="requestData" class="icon-button">
-            <span class="material-symbols-outlined">
-            refresh
-            </span>
-          </button> 
-          <p>
-            Last App Sync: 
-            <span id="timestamp"></span>
-          </p>
-        </div>
-      </div>
-    </div>
-  </header>
-  <div class="main">
 
-    <div class="content">
-
-      <div class="block block-small">
-        <div class="block-content">
-          <div class="block-title">
-            <h3>
-              Air humidity:
-            </h3>
-          </div>
-          <div>
-            <span id="air-humidity">0</span>%
+        <div class="block block-small">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>
+                Air temperature:
+              </h3>
+            </div>
+            <div class="value">
+              <span id="air-temp">0</span>°C
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="block block-small">
-        <div class="block-content">
-          <div class="block-title">
-            <h3>
-              Air temperature:
-            </h3>
-          </div>
-          <div class="value">
-            <span id="air-temp">0</span>°C
+        <div class="graph-container">
+          <canvas id="temperatureChart"></canvas>
+          <button id="resetZoom">Reset Zoom</button>
+          <div class="loading-popup" id="loading-popup">
+            <div class="loading-content">
+              <div class="spinner"></div>
+              <p>Loading data...</p>
+            </div>
           </div>
         </div>
+
+
       </div>
+  </body>
 
-    <div class="graph-container">
-      <canvas id="temperatureChart"></canvas>
-      <div class="loading-popup" id="loading-popup">
-        <div class="loading-content">
-          <div class="spinner"></div>
-          <p>Loading data...</p>
-        </div>
-      </div>
-      <button id="resetZoom">Reset Zoom</button>
-    </div>
-    
-  
-  </div>
-</body>
+  <script src="/main.js"></script>
+  <script>
+    function openLogin() {
+      if (document.getElementById("loginPopup").style.display === "inline-block") {
+        closeLogin();
+        return;
+      } else {
+        document.getElementById("loginPopup").style.display = "inline-block";
+      }
+    }
 
-<script src="/main.js"></script>
-<script>
-  function openLogin() {
-    if (document.getElementById("loginPopup").style.display === "inline-block") {
-      closeLogin();
-      return;
-    } else {
-      document.getElementById("loginPopup").style.display = "inline-block";
+    function closeLogin() {
+      document.getElementById("loginPopup").style.display = "none";
     }
-  }
-  
-  function closeLogin() {
-    document.getElementById("loginPopup").style.display = "none";
-  }
 
-  function openRegister() {
-    if (document.getElementById("registerPopup").style.display === "inline-block") {
-      closeLogin();
-      return;
-    } else {
-      document.getElementById("registerPopup").style.display = "inline-block";
+    function openRegister() {
+      if (document.getElementById("registerPopup").style.display === "inline-block") {
+        closeLogin();
+        return;
+      } else {
+        document.getElementById("registerPopup").style.display = "inline-block";
+      }
     }
-  }
-  
-  function closeRegister() {
-    document.getElementById("registerPopup").style.display = "none";
-  }
 
-  // Close the popup if the user clicks outside of it
-  window.addEventListener('click', function(event) {
-    var loginPopup = document.getElementById("loginPopup");
-    var registerPopup = document.getElementById("registerPopup");
-  
-    if (event.target !== loginPopup && !loginPopup.contains(event.target) && event.target.id !== 'openLoginPopup') {
-      closeLogin();
+    function closeRegister() {
+      document.getElementById("registerPopup").style.display = "none";
     }
-  
-    if (event.target !== registerPopup && !registerPopup.contains(event.target) && event.target.id !== 'register') {
-      closeRegister();
-    }
-  });
-  
-</script>
+
+    // Close the popup if the user clicks outside of it
+    window.addEventListener('click', function (event) {
+      var loginPopup = document.getElementById("loginPopup");
+      var registerPopup = document.getElementById("registerPopup");
+
+      if (event.target !== loginPopup && !loginPopup.contains(event.target) && event.target.id !== 'openLoginPopup') {
+        closeLogin();
+      }
+
+      if (event.target !== registerPopup && !registerPopup.contains(event.target) && event.target.id !== 'register') {
+        closeRegister();
+      }
+    });
+  </script>
+
 </html>
