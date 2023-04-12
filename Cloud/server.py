@@ -2,6 +2,8 @@ from flask import Flask, jsonify, session, request
 # from celery import Celery
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, marshal, fields
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS, cross_origin
+from flask_session import Session
 from enum import Enum
 import time
 import asyncio
@@ -18,9 +20,18 @@ class ESP_Req_Code(Enum):
 
 app = Flask(__name__)
 api = Api(app)
+SECRET_KEY = "secret"
+SESSION_TYPE = 'filesystem'
+app.secret_key = "secret"
+app.config.from_object(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
-app.secret_key = "sawcon"
+app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=True)
+
 db = SQLAlchemy(app)
+# cors = CORS(app, origins="*")
+Session(app)
+CORS(app)
+
 
 # create the schema for the sensor data
 class SensorDataModel(db.Model):
@@ -160,6 +171,7 @@ class SensorData(Resource):
 
     # test get function that return a dictionary with "timestamp", "temperature", "air_humidity", and "soil_humidity"
     # @marshal_with(resource_fields)
+    @cross_origin(supports_credentials=True)
     def get(self, user_id, timestamp):
         # Check if this data access is authorized (by loging in) or not
         if not check_user_auth(user_id):
@@ -216,6 +228,7 @@ class SensorData(Resource):
             return True
         
     @marshal_with(resource_fields)
+    @cross_origin(supports_credentials=True)
     def put(self, user_id, timestamp):
         # Check if this data access is authorized (by loging in) or not
         if not check_user_auth(user_id):
@@ -263,6 +276,7 @@ class SensorData(Resource):
     # Similar to the normal PUT request but for the ESP, and require a password argument
     # @marshal_with(resource_fields)#here2
     @app.route('/esp-req/sensordata/<string:timestamp>', methods=['PUT'])
+    @cross_origin(supports_credentials=True)
     def esp_put(timestamp):
         # Check if this data access is authorized (by loging in) or not
         # if not check_user_auth(user_id):
@@ -312,6 +326,7 @@ class SensorData(Resource):
             abort(400, message="Invalid arguments")
     
     @marshal_with(resource_fields)
+    @cross_origin(supports_credentials=True)
     def patch(self, timestamp, user_id):
         # Check if this data access is authorized (by loging in) or not
         if not check_user_auth(user_id):
@@ -348,6 +363,7 @@ class SensorData(Resource):
             abort(400, message="Invalid arguments")
     
     @app.route('/datatable/<string:user_id>', methods=['GET'])
+    @cross_origin(supports_credentials=True)
     def get_data_table(user_id):
         # Check if this data access is authorized (by loging in) or not
         if not check_user_auth(user_id):
@@ -372,6 +388,7 @@ class SensorData(Resource):
     
     # GET method to get the next request for the ESP to execute
     @app.route('/request-to-esp/<string:user_id>/<string:password>', methods=['GET'])
+    @cross_origin(supports_credentials=True)
     def get_esp_request(user_id, password):
         # # Check if this data access is authorized (by loging in) or not
         # auth_user = get_ip_auth_user(request.remote_addr, authIP)
@@ -417,8 +434,8 @@ class SensorData(Resource):
 
 # Function that checks if the user is authenticated or not
 def check_user_auth(user_id):
-    # print(user_id)
-    # print(session.get('auth_user'))
+    print("Passed user_id:", user_id)
+    print("Session user_id:", session.get('auth_user'))
  
     if user_id == session.get('auth_user'):
         return True
@@ -448,6 +465,7 @@ userAuth_fields = {
 }
 class Authentication(Resource):
     @app.route('/auth/login', methods=['GET'])
+    @cross_origin(supports_credentials=True)
     def get_login():
         try:
             args = login_put_args.parse_args()
@@ -482,6 +500,7 @@ class Authentication(Resource):
     
 
     @app.route('/auth/login', methods=['PATCH'])
+    @cross_origin(supports_credentials=True)
     def patch_login():
         try:
             args = login_put_args.parse_args()
@@ -506,6 +525,7 @@ class Authentication(Resource):
 
         
     @app.route('/auth/register', methods=['PUT'])
+    @cross_origin(supports_credentials=True)
     # @marshal_with(userAuth_fields)
     def put_register():
         try:
