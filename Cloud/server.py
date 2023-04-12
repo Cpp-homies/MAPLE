@@ -41,7 +41,7 @@ class UserAuthModel(db.Model):
     def __repr__(self):
         return f"Auth(timestamp={self.timestamp}, user_id={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
     
-db.create_all()
+# db.create_all()
 
 # argument parser for put
 sensor_put_args = reqparse.RequestParser()
@@ -216,7 +216,7 @@ class SensorData(Resource):
             return True
         
     @marshal_with(resource_fields)
-    def put(self, timestamp, user_id):
+    def put(self, user_id, timestamp):
         # Check if this data access is authorized (by loging in) or not
         if not check_user_auth(user_id):
             return {'message': 'Unauthorized access'}, 401
