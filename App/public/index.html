@@ -100,9 +100,18 @@
             </div>
 
             <!-- Success Message Popup -->
-            <div class="success-popup" id="successPopup">
-              <div class="success-content">
+            <div id="success-popup" class="popup">
+              <div class="popup-content">
                 <p id="successMessage">Success!</p>
+                <span class="close" id="closeSuccessPopup">&times;</span>
+              </div>
+            </div>
+
+            <!-- Error Message Popup -->
+            <div id="error-popup" class="popup">
+              <div class="popup-content">
+                <p id="errorMessage"></p>
+                <span class="close" id="closeErrorPopup">&times;</span>
               </div>
             </div>
 
@@ -133,7 +142,7 @@
               </h3>
             </div>
             <div>
-              <span id="air-humidity">0</span>%
+              <span id="air-humidity"></span>%
             </div>
           </div>
         </div>
@@ -146,7 +155,20 @@
               </h3>
             </div>
             <div class="value">
-              <span id="air-temp">0</span>°C
+              <span id="air-temp"></span>°C
+            </div>
+          </div>
+        </div>
+
+        <div class="block block-small">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>
+                Soil humidity:
+              </h3>
+            </div>
+            <div>
+              <span id="soil-humidity"></span>%
             </div>
           </div>
         </div>
@@ -164,7 +186,42 @@
 
 
       </div>
+
+
+      <div class="custom-hr" id="custom-hr-header">
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+        <div class="custom-hr-line"></div>
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+        <div class="custom-hr-line"></div>
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-container">
+        <div class="footer-text">
+          <p>2023 M.A.P.L.E - Modular Automated Plant Life Enclosure</p>
+          <p>Designed and Developed by <a href="https://github.com/Cpp-homies">H.O.M.I.E.S</a></p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/Cpp-homies/MAPLE" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+        </div>
+      </div>
+    </footer>
+    <!-- End Footer -->
+
   </body>
+
 
   <script src="/main.js"></script>
   <script>

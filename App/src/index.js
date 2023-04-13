@@ -5,8 +5,6 @@ import { login_fetch } from './auth.js';
 
 Chart.register(zoomPlugin);
 
-console.log('index.js loaded')
-
 // Set colors from the CSS variables
 const cssVariables = getComputedStyle(document.documentElement);
 
@@ -23,14 +21,25 @@ const highLightColor1 = cssVariables.getPropertyValue('--HighLightColor1').trim(
 const highLightColor2 = cssVariables.getPropertyValue('--HighLightColor2').trim();
 
 
-const userId = localStorage.getItem('user_id');
-const token = localStorage.getItem('token');
+let userId = localStorage.getItem('user_id');
+let userId_text = localStorage.getItem('user_id_text');
+let token = localStorage.getItem('token');
 
-const URL = `https://cloud.kovanen.io/datatable/${userId}`;
+let URL = `https://cloud.kovanen.io/datatable/${userId}`;
+
+let interval;
+
+// Get login info from local storage
+function getLoginInfo() {
+    userId = localStorage.getItem('user_id');
+    userId_text = localStorage.getItem('user_id_text');
+    token = localStorage.getItem('token');
+    URL = `https://cloud.kovanen.io/datatable/${userId}`;
+}
 
 // Login if user ID and token are found in local storage
 if (userId && token) {
-    login_fetch(userId, token);
+    login_fetch(userId, token, userId_text);
 }
 
 // Initialize the temperature chart
@@ -75,7 +84,7 @@ const chartConfig = {
             x: {
                 type: 'time',
                 bounds: 'data',
-                min: new Date().getTime() - 10 * 60 * 60 * 1000, // 10 hours ago
+                min: new Date().getTime() - 2 * 60 * 60 * 1000, // 2 hours ago
                 // max: new Date().getTime(), // Set the maximum x-value to the current time
                 time: {
                     unit: 'hour',
@@ -157,6 +166,8 @@ function updateTemperatureChart(timestamp, temperature, humidity) {
 
 // Fetch data from the server
 async function fetchdata() {
+    // Log the user ID to the
+    console.log('User ID: ' + userId);
     if (!userId) {
         console.error('No user ID found. Please log in or register first.');
         return;
@@ -189,6 +200,9 @@ async function fetchdata() {
                 });
                 document.getElementById('air-humidity').innerHTML = Math.floor(data[0].air_humidity);
                 document.getElementById('air-temp').innerHTML = Math.floor(data[0].temperature);
+                document.getElementById('soil-humidity').innerHTML = Math.floor(data[0].soil_humidity);
+                // soil humidity
+                console.log(data[0].soil_humidity);
                 document.getElementById('timestamp').innerHTML = new Date(data[0].timestamp).toLocaleString();
 
 
@@ -221,9 +235,13 @@ async function fetchdata() {
 
 // Initiate the loading popup
 async function active_fetchdata() {
-    document.getElementById('loading-popup').style.display = 'flex';
-    await fetchdata();
-    document.getElementById('loading-popup').style.display = 'none';
+    if (userId && token) {
+        document.getElementById('loading-popup').style.display = 'flex';
+        await fetchdata();
+        document.getElementById('loading-popup').style.display = 'none';
+    } else {
+        console.error('No user ID found. Please log in or register first.');
+    }
 }
 
 // Zoom reset button
@@ -236,10 +254,9 @@ document.getElementById('requestData').addEventListener('click', () => {
     active_fetchdata();
 });
 
-let interval;
-
 // Start interval
 export function startInterval() {
+    getLoginInfo();
     active_fetchdata();
     interval = setInterval(fetchdata, 10000);
 }

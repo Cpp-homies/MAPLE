@@ -1,7 +1,7 @@
 path = require('path');
 
 module.exports = {
-    mode: 'development',
+    mode: process.env.NODE_ENV || 'development',
     entry: ['./src/index.js', './src/borders.js', './src/auth.js'],
     output: {
         filename: 'main.js',
