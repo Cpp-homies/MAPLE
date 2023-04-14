@@ -6,6 +6,7 @@ from flask_cors import CORS, cross_origin
 from flask_session import Session
 from enum import Enum
 import time
+from datetime import timedelta
 import asyncio
 
 # Define HOST and PORT
@@ -26,6 +27,7 @@ app.secret_key = "secret"
 app.config.from_object(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
 app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=True)
+app.config['PERMANENT_SESSION_LIFETIME'] =  timedelta(minutes=59)
 
 db = SQLAlchemy(app)
 # cors = CORS(app, origins="*")
@@ -150,6 +152,7 @@ class Client():
 def find_client(user_list, user_id):
     # sSarch for the user object with the correct self.user_id == user_id attribute and return it
     for user in user_list:
+        # print(user.user_id)
         if user.user_id == user_id:
             return user
 
@@ -199,7 +202,7 @@ class SensorData(Resource):
         else:
              # Query data by user ID
             results = SensorDataModel.query.filter_by(user_id=user_id).all()
-            print(results)
+            # print(results)
 
             # Check if user ID exists
             if not results:
@@ -284,6 +287,8 @@ class SensorData(Resource):
         try:
             args = sensor_esp_put_args.parse_args()
             user_id = args['user_id']
+            # print(args)
+            # print(clients)
             client = find_client(clients, user_id)
             if not client:
                 abort(404, message="User ID not found")
@@ -305,22 +310,21 @@ class SensorData(Resource):
                 return client.live_data, 201
             
             else:
-                abort(404, message="User ID not found")
+                
 
-            
-            args = sensor_put_args.parse_args()
-            # check whether the timestamp is taken or not
-            result = SensorDataModel.query.filter_by(timestamp=timestamp, user_id=user_id).first()
-            # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
-            #       + args['humid'] + '}')
-            if result:
-                abort(409, message='Timestamp already exist')
+                # args = sensor_esp_put_args.parse_args()
+                # check whether the timestamp is taken or not
+                result = SensorDataModel.query.filter_by(timestamp=timestamp, user_id=user_id).first()
+                # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
+                #       + args['humid'] + '}')
+                if result:
+                    abort(409, message='Timestamp already exist')
 
-            # create a SensorDataModel object and add it to the session
-            data = SensorDataModel(timestamp=timestamp, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
-            db.session.add(data)
-            db.session.commit()
-            return data, 201
+                # create a SensorDataModel object and add it to the session
+                data = SensorDataModel(timestamp=timestamp, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
+                db.session.add(data)
+                db.session.commit()
+                return marshal(data, resource_fields), 201
         except ValueError as e:
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
@@ -434,8 +438,8 @@ class SensorData(Resource):
 
 # Function that checks if the user is authenticated or not
 def check_user_auth(user_id):
-    print("Passed user_id:", user_id)
-    print("Session user_id:", session.get('auth_user'))
+    # print("Passed user_id:", user_id)
+    # print("Session user_id:", session.get('auth_user'))
  
     if user_id == session.get('auth_user'):
         return True

@@ -219,7 +219,7 @@ void Listener( void * pvParameters ){
 // the data is sent to esp-req/sensordata/<timestamp> resource on the cloud server
 void sendData(float temp, float airHumid, float soilHumid) {
   // Create a JSON payload with the temperature and humidity values
-    StaticJsonDocument<128> jsonPayload;
+    StaticJsonDocument<512> jsonPayload;
     jsonPayload["temp"] = temp;
     jsonPayload["air_humid"] = airHumid;
     jsonPayload["soil_humid"] = soilHumid;//here
@@ -909,7 +909,8 @@ void loop() {
   // }
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
+    sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));
+    // sendData(234, 123, 1234);     
   }
   checkAirHumidity();
   
