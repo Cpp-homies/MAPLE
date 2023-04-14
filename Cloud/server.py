@@ -487,7 +487,7 @@ class Authentication(Resource):
                 # Add a new Client() object for this user if it didn't exist yet
                 user_id = args['user_id']
                 if not find_client(clients, user_id):
-                    clients.append(Client(user_id, args['password']))#here
+                    clients.append(Client(user_id, args['password']))
                     # print(clients)
 
                 # # Add a new IP - User pair to the list of authenticated IP address if it does not exist yet
@@ -555,6 +555,10 @@ api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestamp>")
 api.add_resource(Authentication, "/auth")
 api.add_resource(Authentication, "/auth/register", endpoint="register")
 api.add_resource(Authentication, "/auth/login", endpoint="login")
+
+@app.route('/', methods=['GET'])#here
+def get_server_online_status():
+    return {'status': 1}, 200
 
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
