@@ -75,7 +75,7 @@ def back_up_file(gcs, bucket_name, backup_filename, local_filedir):
     gcs.upload_file(bucket_gcs, complete_backup_filename, local_filedir)
     
 # Prepare the variables
-working_dir = pathlib.Path.cwd()
+working_dir = pathlib.Path.cwd().parent
 files_folder = working_dir #.joinpath('My Files')
 downloads_folder = working_dir.joinpath('Downloaded')
 bucket_name = 'maple_backups'
