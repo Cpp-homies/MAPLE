@@ -2,6 +2,42 @@ import { startInterval, stopInterval, clearData } from './index.js';
 
 const baseUrl = "https://cloud.kovanen.io";
 
+
+// Check if server is running on interval until it is
+let serverCheckInterval;
+function startServerCheckInterval() {
+    serverCheckInterval = setInterval(() => {
+        checkServer();
+    }, 3000);
+}
+
+// Check if server is running
+async function checkServer() {
+    const serverStatusElement = document.getElementById("serverStatus");
+
+    try {
+        const response = await fetch(`${baseUrl}/`);
+        if (response.ok) {
+            console.log("Server is running");
+            serverStatusElement.textContent = "Online";
+            serverStatusElement.style.color = "green";
+            clearInterval(serverCheckInterval);
+            return true;
+        } else {
+            console.error("Server is not running");
+            serverStatusElement.textContent = "Offline";
+            serverStatusElement.style.color = "red";
+            return false;
+        }
+    } catch (error) {
+        console.error("Error fetching server status:", error);
+        serverStatusElement.textContent = "Error";
+        serverStatusElement.style.color = "red";
+        return false;
+    }
+}
+
+
 async function sha256(input) {
     const encoder = new TextEncoder();
     const data = encoder.encode(input);
@@ -66,7 +102,7 @@ async function login(event) {
     login_fetch(hashedUserId, hashedPassword, userId);
 }
 
-export async function login_fetch(userId, password, userId_text=null) {
+export async function login_fetch(userId, password, userId_text = null) {
     const loginUrl = `${baseUrl}/auth/login`;
 
     console.log(userId, password)
@@ -197,4 +233,9 @@ document.getElementById("closeSuccessPopup").addEventListener('click', (event) =
 });
 document.getElementById("closeErrorPopup").addEventListener('click', (event) => {
     hideErrorPopup();
+});
+
+// Check if server is running after page has loaded
+window.addEventListener("load", (event) => {
+    startServerCheckInterval();
 });

@@ -105,6 +105,24 @@ header .header-buttons p {
     width: 100%;
 }
 
+#serverStatusContainer {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    margin: 0 auto;
+    max-width: var(--Width);
+    padding: 10px;
+    text-align: center;
+    width: 100%;
+}
+
+#serverStatus {
+    background-color: black;
+    padding: 5px;
+    border-radius: 3px;
+    font-family: 'Roboto Mono', monospace;
+}
+
 
 /* Content */
 .content {
@@ -200,13 +218,13 @@ h3 {
 .custom-hr-line {
     background-color: var(--LightGrayColor1);
     flex-grow: 1;
-    height: 8px;
+    height: 6px;
 }
 
 .custom-vr-line {
     background-color: var(--LightGrayColor1);
     flex-grow: 1;
-    width: 8px;
+    width: 6px;
 }
 
 .custom-hr-middle {
@@ -214,7 +232,7 @@ h3 {
     background-color: white;
     border-radius: 3px;
     display: flex;
-    height: 15px;
+    height: 11px;
     justify-content: center;
     margin: 0;
     width: 30px;
@@ -228,7 +246,7 @@ h3 {
     height: 30px;
     justify-content: center;
     margin: 0;
-    width: 15px;
+    width: 11px;
 }
 
 .custom-hr-dot,
@@ -238,6 +256,7 @@ h3 {
     height: 5px;
     margin: 0 5px;
     width: 6px;
+    display: none;
 }
 
 .custom-vr-dot {
@@ -496,6 +515,10 @@ button#resetZoom:hover {
         margin: 10px 0;
         padding: 12px;
         height: fit-content;
+    }
+
+    .custom-vr-middle {
+        height: 20px;
     }
 }
 
