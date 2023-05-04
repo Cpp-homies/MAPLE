@@ -39,8 +39,8 @@
 #define SOIL_SENSOR 35
 #define DIR 27
 #define STEP 14
-#define LIGHTS 33
-#define FAN 32
+#define LIGHTS 32
+#define FAN 13
 #define PUMP_POWER 12
 #define RX_PORT2 2
 #define TX_PORT2 4
