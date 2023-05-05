@@ -32,18 +32,21 @@
 //rotary
 #define CLICKS_PER_STEP   4
 //GPIO pins
-#define ROTARY_PIN1	0
-#define ROTARY_PIN2	2
-#define BUTTON_PIN	15
+#define ROTARY_PIN1	33
+#define ROTARY_PIN2	25
+#define BUTTON_PIN	26
 #define LIGHT_SENSOR 34
 #define SOIL_SENSOR 35
 #define DIR 27
 #define STEP 14
-#define LIGHTS 33
-#define FAN 32
+#define LIGHTS 32
+#define FAN 13
 #define PUMP_POWER 12
-#define RX_PORT2 16
-#define TX_PORT2 17
+#define RX_PORT2 2
+#define TX_PORT2 4
+#define I2C_SDA 16
+#define I2C_SCL 17
+
 
 //PWM variables
 int freq = 2000;
@@ -60,9 +63,11 @@ bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
 const char *dataFile = "/mapleData.csv"; //data logging file path
 hw_timer_t *timer = NULL; //rotary timer
+uint32_t I2Cfreq = 100000;
 
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+TwoWire I2C = TwoWire(0);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C, -1);
 Adafruit_BME280 bme;
 HardwareSerial SerialPort(2); //UART2
 ESPRotary r;
@@ -392,12 +397,15 @@ void setup() {
   SerialPort.begin(115200, SERIAL_8N1, RX_PORT2, TX_PORT2);
   while (!SerialPort){}
 
+  //Changing I2C pins
+  I2C.begin(I2C_SDA, I2C_SCL, I2Cfreq);
+
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     //for(;;);
   }
   Serial.println("Display connected.");
-  bool status = bme.begin(0x76);  
+  bool status = bme.begin(0x76,&I2C);  
   if (!status) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
     //while (1);
