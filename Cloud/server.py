@@ -2,6 +2,7 @@ from flask import Flask, jsonify, session, request
 # from celery import Celery
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, marshal, fields
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import delete
 from flask_cors import CORS, cross_origin
 from flask_session import Session
 from enum import Enum
@@ -277,7 +278,7 @@ class SensorData(Resource):
             abort(400, message="Invalid arguments")
 
     # Similar to the normal PUT request but for the ESP, and require a password argument
-    # @marshal_with(resource_fields)#here2
+    # @marshal_with(resource_fields)
     @app.route('/esp-req/sensordata/<string:timestamp>', methods=['PUT'])
     @cross_origin(supports_credentials=True)
     def esp_put(timestamp):
@@ -412,19 +413,20 @@ class SensorData(Resource):
         #     abort(404, message="User ID not found")
         
 
-    # @marshal_with(resource_fields)    
-    # def delete(self, studentID):
-    #     # check whether the student ID exist or not
-    #     result = SensorDataModel.query.filter_by(id=studentID).first()
-    #     if not result:
-    #         abort(404, message='Student ID not found')
-
-    #     # delete the student
-    #     session = db.session()
-    #     session.delete(result)
-    #     session.commit()
-
-    #     return result, 201
+    @app.route('/delete-all/<string:user_id>', methods=['DELETE'])
+    @cross_origin(supports_credentials=True)
+    def delete_all(user_id): #here
+        # Check if this data access is authorized (by loging in) or not
+        if not check_user_auth(user_id):
+            return {'message': 'Unauthorized access'}, 401
+        try:
+            
+            db.session.query(SensorDataModel).filter(SensorDataModel.user_id == user_id).delete()
+            db.session.commit()
+            return {'status': 1}, 200
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
 
     
     # def post(self):
@@ -438,9 +440,9 @@ class SensorData(Resource):
 
 # Function that checks if the user is authenticated or not
 def check_user_auth(user_id):
-    # print("Passed user_id:", user_id)
-    # print("Session user_id:", session.get('auth_user'))
- 
+    print("Passed user_id:", user_id)
+    print("Session user_id:", session.get('auth_user'))
+    print(session.sid)
     if user_id == session.get('auth_user'):
         return True
     return False
@@ -552,6 +554,7 @@ class Authentication(Resource):
             abort(400, message="Invalid arguments")
 
 api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestamp>")
+api.add_resource(SensorData, "/delete-all/<string:user_id>", methods=['DELETE'], endpoint="delete-all")
 api.add_resource(Authentication, "/auth")
 api.add_resource(Authentication, "/auth/register", endpoint="register")
 api.add_resource(Authentication, "/auth/login", endpoint="login")
