@@ -2,12 +2,15 @@ from flask import Flask, jsonify, session, request
 # from celery import Celery
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, marshal, fields
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.dialects.sqlite import DATETIME
 from sqlalchemy import delete
 from flask_cors import CORS, cross_origin
 from flask_session import Session
 from enum import Enum
 import time
+import datetime
 from datetime import timedelta
+from datetime import datetime
 import asyncio
 
 # Define HOST and PORT
@@ -27,7 +30,7 @@ SESSION_TYPE = 'filesystem'
 app.secret_key = "secret"
 app.config.from_object(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
-app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=True)
+app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=False)
 app.config['PERMANENT_SESSION_LIFETIME'] =  timedelta(minutes=59)
 
 db = SQLAlchemy(app)
@@ -35,10 +38,13 @@ db = SQLAlchemy(app)
 Session(app)
 CORS(app)
 
-
+# Custom timestamp format to store in the DB
+custom_datetime_format = DATETIME(storage_format="%(year)04d_%(month)02d_%(day)02d_%(hour)02d_%(minute)02d_%(second)02d",
+                                  regexp=r"(\d+)_(\d+)_(\d+)_(\d+)_(\d+)_(\d+)"
+                                 )
 # create the schema for the sensor data
 class SensorDataModel(db.Model):
-    timestamp = db.Column(db.String(20), primary_key=True)
+    timestamp = db.Column(custom_datetime_format, primary_key=True)
     user_id = db.Column(db.String, primary_key=True)
     temperature = db.Column(db.Float, nullable=False)
     air_humidity = db.Column(db.Float, nullable=False)
@@ -46,14 +52,23 @@ class SensorDataModel(db.Model):
 
     def __repr__(self):
         return f"Data(timestamp={self.timestamp}, user_id={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
+
+# Helper function that takes in an input string in the form "YYYY_mm_dd_HH_MM_SS" and convert it to the data model time
+def str_to_datamodelTime(input_string):
     
+    return datetime.strptime(input_string, "%Y_%m_%d_%H_%M_%S")
+
+# Helper function that takes in a SensorDataModel type return a corresponding dictionary #here
+def sensordata_to_dict(sensor_data):
+    result_dict = marshal(sensor_data, resource_fields)
+
 # create the schema for the student
 class UserAuthModel(db.Model):
     user_id = db.Column(db.String(20), primary_key=True)
     password = db.Column(db.String, nullable=False)
 
     def __repr__(self):
-        return f"Auth(timestamp={self.timestamp}, user_id={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
+        return f"Auth(user_id={self.user_id}, password={self.password})"
     
 # db.create_all()
 
@@ -176,13 +191,17 @@ class SensorData(Resource):
     # test get function that return a dictionary with "timestamp", "temperature", "air_humidity", and "soil_humidity"
     # @marshal_with(resource_fields)
     @cross_origin(supports_credentials=True)
-    def get(self, user_id, timestamp):
+    def get(self, user_id, timestampstr):
+        #### NOTE #######
+        # Currently disable authentication for faster testing, remember to uncomment this part later
+        #################
+
         # Check if this data access is authorized (by loging in) or not
-        if not check_user_auth(user_id):
-            return {'message': 'Unauthorized access'}, 401
+        # if not check_user_auth(user_id):
+        #     return {'message': 'Unauthorized access'}, 401
 
         # Check if this is a request for live data or not
-        if timestamp == "live":
+        if timestampstr == "live":
             client = find_client(clients, user_id)
 
             if client:
@@ -200,7 +219,9 @@ class SensorData(Resource):
             else:
                 abort(404, message="User ID not found")
 
-        else:
+        try:
+            # convert given string timestamp into datetime type
+            timestamp_converted = str_to_datamodelTime(timestampstr)
              # Query data by user ID
             results = SensorDataModel.query.filter_by(user_id=user_id).all()
             # print(results)
@@ -210,13 +231,16 @@ class SensorData(Resource):
                 abort(404, message="User ID not found")
 
             # Filter data by timestamp
-            result = next((item for item in results if item.timestamp == timestamp), None)
+            result = next((item for item in results if item.timestamp == timestamp_converted), None)
 
             # Check if timestamp exists
             if not result:
                 abort(404, message="Timestamp not found")
             
             return marshal(result, resource_fields)
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
     
     # update the live data from the ESP
     async def update_live_data(self, client):
@@ -231,14 +255,18 @@ class SensorData(Resource):
         else:
             return True
         
-    @marshal_with(resource_fields)
+    # @marshal_with(resource_fields)
     @cross_origin(supports_credentials=True)
-    def put(self, user_id, timestamp):
+    def put(self, user_id, timestampstr):
+        #### NOTE #######
+        # Currently disable authentication for faster testing, remember to uncomment this part later
+        #################
+
         # Check if this data access is authorized (by loging in) or not
-        if not check_user_auth(user_id):
-            return {'message': 'Unauthorized access'}, 401
+        # if not check_user_auth(user_id):
+        #     return {'message': 'Unauthorized access'}, 401
         try:
-            if timestamp == "live":
+            if timestampstr == "live":
                 args = sensor_live_put_args.parse_args()
                 client = find_client(clients, user_id)
 
@@ -259,29 +287,33 @@ class SensorData(Resource):
                 else:
                     abort(404, message="User ID not found")
 
-            
+            timestamp_converted = str_to_datamodelTime(timestampstr)
             args = sensor_put_args.parse_args()
             # check whether the timestamp is taken or not
-            result = SensorDataModel.query.filter_by(timestamp=timestamp, user_id=user_id).first()
+            result = SensorDataModel.query.filter_by(timestamp=timestamp_converted, user_id=user_id).first()
             # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
             #       + args['humid'] + '}')
             if result:
                 abort(409, message='Timestamp already exist')
 
             # create a SensorDataModel object and add it to the session
-            data = SensorDataModel(timestamp=timestamp, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
+            data = SensorDataModel(timestamp=timestamp_converted, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
             db.session.add(data)
             db.session.commit()
-            return data, 201
+            return marshal(data, resource_fields), 201#here1
         except ValueError as e:
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
 
     # Similar to the normal PUT request but for the ESP, and require a password argument
     # @marshal_with(resource_fields)
-    @app.route('/esp-req/sensordata/<string:timestamp>', methods=['PUT'])
+    @app.route('/esp-req/sensordata/<string:timestampstr>', methods=['PUT'])
     @cross_origin(supports_credentials=True)
-    def esp_put(timestamp):
+    def esp_put(timestampstr):
+        #### NOTE #######
+        # Currently disable authentication for faster testing, remember to uncomment this part later
+        #################
+        
         # Check if this data access is authorized (by loging in) or not
         # if not check_user_auth(user_id):
         #     return {'message': 'Unauthorized access'}, 401
@@ -297,7 +329,7 @@ class SensorData(Resource):
                 if client.password != args['password']:
                     return {'message': 'Unauthorized access'}, 401
                 
-            if timestamp == "live":
+            if timestampstr == "live":
                 # Add the data to the live_data dictionary
                 client.live_data["timestamp"] = args['time']
                 client.live_data["user_id"] = user_id
@@ -315,14 +347,14 @@ class SensorData(Resource):
 
                 # args = sensor_esp_put_args.parse_args()
                 # check whether the timestamp is taken or not
-                result = SensorDataModel.query.filter_by(timestamp=timestamp, user_id=user_id).first()
+                result = SensorDataModel.query.filter_by(timestamp=timestampstr, user_id=user_id).first()
                 # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
                 #       + args['humid'] + '}')
                 if result:
                     abort(409, message='Timestamp already exist')
 
                 # create a SensorDataModel object and add it to the session
-                data = SensorDataModel(timestamp=timestamp, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
+                data = SensorDataModel(timestamp=timestampstr, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
                 db.session.add(data)
                 db.session.commit()
                 return marshal(data, resource_fields), 201
@@ -332,7 +364,7 @@ class SensorData(Resource):
     
     @marshal_with(resource_fields)
     @cross_origin(supports_credentials=True)
-    def patch(self, timestamp, user_id):
+    def patch(self, timestampstr, user_id):
         # Check if this data access is authorized (by loging in) or not
         if not check_user_auth(user_id):
             return {'message': 'Unauthorized access'}, 401
@@ -347,7 +379,7 @@ class SensorData(Resource):
                 abort(404, message="User ID not found")
 
             # Filter data by timestamp
-            result = next((item for item in results if item.timestamp == timestamp), None)
+            result = next((item for item in results if item.timestamp == timestampstr), None)
 
             # Check if timestamp exists
             if not result:
@@ -370,9 +402,13 @@ class SensorData(Resource):
     @app.route('/datatable/<string:user_id>', methods=['GET'])
     @cross_origin(supports_credentials=True)
     def get_data_table(user_id):
+        #### NOTE #######
+        # Currently disable authentication for faster testing, remember to uncomment this part later
+        #################
+
         # Check if this data access is authorized (by loging in) or not
-        if not check_user_auth(user_id):
-            return {'message': 'Unauthorized access'}, 401
+        # if not check_user_auth(user_id):
+        #     return {'message': 'Unauthorized access'}, 401
         # Query all data rows from the database
         rows = SensorDataModel.query.filter_by(user_id=user_id).all()
 
@@ -415,7 +451,7 @@ class SensorData(Resource):
 
     @app.route('/delete-all/<string:user_id>', methods=['DELETE'])
     @cross_origin(supports_credentials=True)
-    def delete_all(user_id): #here
+    def delete_all(user_id): 
         # Check if this data access is authorized (by loging in) or not
         if not check_user_auth(user_id):
             return {'message': 'Unauthorized access'}, 401
@@ -432,6 +468,8 @@ class SensorData(Resource):
     # def post(self):
     #     return {'data':'Posted'}
  
+
+
 
 ########################
 # Authentication code
@@ -553,13 +591,13 @@ class Authentication(Resource):
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
 
-api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestamp>")
+api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestampstr>")
 api.add_resource(SensorData, "/delete-all/<string:user_id>", methods=['DELETE'], endpoint="delete-all")
 api.add_resource(Authentication, "/auth")
 api.add_resource(Authentication, "/auth/register", endpoint="register")
 api.add_resource(Authentication, "/auth/login", endpoint="login")
 
-@app.route('/', methods=['GET'])#here
+@app.route('/', methods=['GET'])
 def get_server_online_status():
     return {'status': 1}, 200
 
