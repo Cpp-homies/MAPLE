@@ -57,7 +57,7 @@ int pwmChannel_2 = 2;
 uint16_t analogWet = 1500;
 uint16_t analogDry = 3000;
 uint8_t brightness;
-int pumpSpeed = 1500;
+int pumpSpeed = 1200;
 int fanSpeed = 240; //190-255
 bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
@@ -843,13 +843,15 @@ void adjustLights(){
     digitalWrite(LIGHTS, HIGH);
   }*/
   int lightIntensity = analogRead(LIGHT_SENSOR);
+  
   //Serial.println(lightIntensity);
   if(lightIntensity<=3600){
     brightness = map(lightIntensity, 3600, 0, 0, 255);
+    //Serial.println(brightness);
   } else {
     brightness = 0;
   }
-  
+  //ledcWrite(pwmChannel_0, 255);
   ledcWrite(pwmChannel_0, brightness);
 }
 
@@ -909,14 +911,12 @@ void loop() {
   adjustLights();
   unsigned long currentMillis = millis();
   if (needsWater()){
-    //pumpWater();
+    pumpWater();
   }
-  // if (currentMillis - previousMillis >= 5000) {
-  //   previousMillis = currentMillis;
-  //   logData();   
-  // }
+  
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
+    logData(); //to SDcard
     sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
   }
   checkAirHumidity();
