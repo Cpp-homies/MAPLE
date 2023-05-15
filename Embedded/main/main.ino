@@ -110,14 +110,14 @@ WiFiManager wm;
 TaskHandle_t listenerHandle;
 
 // The HTTPClient object used for communication
-HTTPClient http;
+// HTTPClient http;
 
 // Function that get incoming request from the cloud
 // return the HTTP response code, and change the JSON document requestArgs to contain any input arguments for the request (if any)
 int getNewRequest(DynamicJsonDocument *requestArgs) {
     // Create the address
     String address = BASE_URL + "request-to-esp/" + hashedUsername + "/" + hashedPassword;
-    // HTTPClient http;
+    HTTPClient http;
     http.begin(address);
     Serial.println("Sending request to " + address);
     // Send HTTP GET request to the cloud to check for incoming request
@@ -243,7 +243,7 @@ void sendData(float temp, float airHumid, float soilHumid) {
     
     String timeStr_String = String(timeStr);
     address = address + timeStr_String;
-    // HTTPClient http;
+    HTTPClient http;
     http.begin(address);
 
     // Set the content type header to JSON
@@ -286,7 +286,7 @@ void sendLiveData(float temp, float airHumid, float soilHumid) {
     // make the address
     String address = BASE_URL + "esp-req/sensordata/live";
     
-    // HTTPClient http;
+    HTTPClient http;
     http.begin(address);
 
     // Set the content type header to JSON
@@ -354,7 +354,7 @@ int cloudLogin(String hashedUsername, String hashedPassword) {
   
   // Create the address
   String address = BASE_URL + "auth/login?user_id=" + hashedUsername + "&password=" + hashedPassword;
-  // HTTPClient http;
+  HTTPClient http;
   http.begin(address);
   Serial.println("Sending request to " + address);
   // Send HTTP GET request to the cloud to check for incoming request
@@ -388,7 +388,7 @@ int cloudLogin(String hashedUsername, String hashedPassword) {
 
 void setup() {
 
-  http.setReuse(true);// reuse for all connection in order to authenticate one time only
+  // http.setReuse(true);// reuse for all connection in order to authenticate one time only
 
   //Serial for PC connection
   Serial.begin(115200);
