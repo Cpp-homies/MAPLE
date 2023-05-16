@@ -54,8 +54,11 @@ int pwmResolution = 8;
 int pwmChannel_0 = 0;
 int pwmChannel_2 = 2;
 
+int plantCheckPreviousMillis = 0;
+int plantCheckInterval = 10000; 
 uint16_t analogWet = 1500;
 uint16_t analogDry = 3000;
+uint16_t pumpTriggerPercent = 20;
 uint8_t brightness;
 int pumpSpeed = 1200;
 int fanSpeed = 240; //190-255
@@ -72,13 +75,6 @@ Adafruit_BME280 bme;
 HardwareSerial SerialPort(2); //UART2
 ESPRotary r;
 Button2 b;
-
-
-//Rottary handler
-void IRAM_ATTR handleLoop() {
-  r.loop();
-  b.loop();
-}
 
 
 unsigned long previousMillis = 0;
@@ -480,10 +476,12 @@ void initRotary(){
   timerAlarmWrite(timer, 3000, true); // every 0.3 seconds
   timerAlarmEnable(timer);
 
+}
 
-       
-
-
+//Rottary handler
+void IRAM_ATTR handleLoop() {
+  r.loop();
+  b.loop();
 }
 
 //when turned left
@@ -856,9 +854,8 @@ void adjustLights(){
 }
 
 bool needsWater(){
-  int dry = 3000;
-  int wet = 1600;
-  if(analogRead(SOIL_SENSOR)>2500){
+  
+  if(convertToSoilHumidity(analogRead(SOIL_SENSOR))<pumpTriggerPercent){
     return true;
   } else return false;
 }
@@ -896,7 +893,11 @@ void checkAirHumidity(){
 }
 
 float convertToSoilHumidity(uint16_t analogInput){ 
-  return (3050.0-float(analogInput))/15.0;
+
+  soilMoisturePercent = map(analogInput, analogDry, analogWet, 0, 100);
+  soilMoisturePercent = constrain(soilMoisturePercent, 0, 100);
+  
+  return soilMoisturePercent;
 }
 
 void loop() {
@@ -908,11 +909,20 @@ void loop() {
     displaySoilData();
   }
   
-  adjustLights();
+  
   unsigned long currentMillis = millis();
-  if (needsWater()){
-    pumpWater();
+
+  if (currentMillis - plantCheckPreviousMillis >= plantCheckInterval) {
+    plantCheckPreviousMillis = currentMillis;
+
+    adjustLights();
+
+    if (needsWater()){
+      pumpWater();
+    }
   }
+
+  
   
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
