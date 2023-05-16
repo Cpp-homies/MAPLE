@@ -22,6 +22,7 @@
 #include "SD.h"
 #include "SPI.h"
 #include <HardwareSerial.h>
+#include <AccelStepper.h>
 
 //OLED
 #define SCREEN_WIDTH 128 
@@ -31,6 +32,8 @@
 #define JSON_CONFIG_FILE "/config_maple_user.json"
 //rotary
 #define CLICKS_PER_STEP   4
+//pump motor
+#define motorInterfaceType 1
 //GPIO pins
 #define ROTARY_PIN1	33
 #define ROTARY_PIN2	25
@@ -75,7 +78,7 @@ Adafruit_BME280 bme;
 HardwareSerial SerialPort(2); //UART2
 ESPRotary r;
 Button2 b;
-
+AccelStepper motor(motorInterfaceType, STEP, DIR);
 
 unsigned long previousMillis = 0;
 const long interval = 30000;
