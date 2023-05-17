@@ -40,8 +40,8 @@
 #define BUTTON_PIN	26
 #define LIGHT_SENSOR 34
 #define SOIL_SENSOR 35
-#define DIR 27
-#define STEP 14
+//#define DIR 27
+//#define STEP 14
 #define LIGHTS 32
 #define FAN 13
 #define PUMP_POWER 12
@@ -50,6 +50,8 @@
 #define I2C_SDA 16
 #define I2C_SCL 17
 
+const int STEP = 14;
+const int DIR = 27;
 
 //PWM variables
 int freq = 2000;
@@ -57,13 +59,18 @@ int pwmResolution = 8;
 int pwmChannel_0 = 0;
 int pwmChannel_2 = 2;
 
-int plantCheckPreviousMillis = 0;
-int plantCheckInterval = 10000; 
-uint16_t analogWet = 1500;
-uint16_t analogDry = 3000;
+int lightCheckPreviousMillis = 0;
+int lightCheckInterval = 10000; 
+int pumpCheckPreviousMillis = 0;
+int pumpCheckInterval = 10000;
+int pumpInterval = 10000; 
+uint16_t analogWet = 1420;
+uint16_t analogDry = 2950;
+uint16_t lightCutOff = 90;
+uint16_t lightMax = 10;
 uint16_t pumpTriggerPercent = 20;
 uint8_t brightness;
-int pumpSpeed = 1200;
+int pumpSpeed = 3000;
 int fanSpeed = 240; //190-255
 bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
@@ -78,7 +85,7 @@ Adafruit_BME280 bme;
 HardwareSerial SerialPort(2); //UART2
 ESPRotary r;
 Button2 b;
-AccelStepper motor(motorInterfaceType, STEP, DIR);
+AccelStepper stepper(motorInterfaceType, STEP, DIR);
 
 unsigned long previousMillis = 0;
 const long interval = 30000;
@@ -420,6 +427,12 @@ void setup() {
 
   digitalWrite(PUMP_POWER, LOW);
 
+  stepper.setMaxSpeed(1000);
+  //stepper.setAcceleration(50);
+  stepper.setSpeed(400);
+  stepper.moveTo(200);
+  //stepper.setCurrentPosition(0);      
+
   // configure PWM functionalitites
   ledcSetup(pwmChannel_0, freq, pwmResolution);
   ledcSetup(pwmChannel_2, freq, pwmResolution);
@@ -466,6 +479,12 @@ void setup() {
 /////////////////////////////////////////////////////////////////
 //Rotary methods
 
+//Rottary handler
+void IRAM_ATTR handleLoop() {
+  r.loop();
+  b.loop();
+}
+
 void initRotary(){
   r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP);
   r.setRightRotationHandler(screenModeSoil);
@@ -481,11 +500,7 @@ void initRotary(){
 
 }
 
-//Rottary handler
-void IRAM_ATTR handleLoop() {
-  r.loop();
-  b.loop();
-}
+
 
 //when turned left
 void screenModeAir(ESPRotary& r){
@@ -509,6 +524,7 @@ void click(Button2& btn) {
 void resetPosition(Button2& btn) {
   r.resetPosition();
   Serial.println("Reset!");
+  esp_restart();
 }
 /////////////////////////////////////////////////////////////////
 //SDcard methods
@@ -836,18 +852,18 @@ void displayBoot(){
 
 
 void adjustLights(){
-  /*
-  if (analogRead(LIGHT_SENSOR)>3000){
-    digitalWrite(LIGHTS,LOW);
-  } 
-  else {
-    digitalWrite(LIGHTS, HIGH);
-  }*/
+  
   int lightIntensity = analogRead(LIGHT_SENSOR);
   
   //Serial.println(lightIntensity);
-  if(lightIntensity<=3600){
-    brightness = map(lightIntensity, 3600, 0, 0, 255);
+  int brightnessPercent = map(lightIntensity, 0, 4095, 0, 100);
+  
+  if(brightnessPercent<lightCutOff){
+    if(brightnessPercent>lightMax){
+      brightness = map(brightnessPercent,lightCutOff,lightMax,0,255);
+    } else {
+      brightness = 255;
+    }
     //Serial.println(brightness);
   } else {
     brightness = 0;
@@ -864,16 +880,17 @@ bool needsWater(){
 }
 
 void pumpWater(){
+  
   digitalWrite(PUMP_POWER,HIGH);
-  digitalWrite(DIR, HIGH);
-  while(needsWater()){
-    //displayTempHumidity();
-    //adjustLights();
+  
+  for(int i = 0; i<300; ++i){
+
     digitalWrite(STEP, HIGH);
     delayMicroseconds(pumpSpeed);
     digitalWrite(STEP, LOW);
     delayMicroseconds(pumpSpeed);
   }
+  
   digitalWrite(PUMP_POWER,LOW);
 }
 
@@ -896,8 +913,8 @@ void checkAirHumidity(){
 }
 
 float convertToSoilHumidity(uint16_t analogInput){ 
-
-  soilMoisturePercent = map(analogInput, analogDry, analogWet, 0, 100);
+  //Serial.println(analogInput);
+   int soilMoisturePercent = map(analogInput, analogDry, analogWet, 0, 100);
   soilMoisturePercent = constrain(soilMoisturePercent, 0, 100);
   
   return soilMoisturePercent;
@@ -915,22 +932,28 @@ void loop() {
   
   unsigned long currentMillis = millis();
 
-  if (currentMillis - plantCheckPreviousMillis >= plantCheckInterval) {
-    plantCheckPreviousMillis = currentMillis;
+  adjustLights(); 
 
-    adjustLights();
+  if (currentMillis - lightCheckPreviousMillis >= lightCheckInterval) {
+    lightCheckPreviousMillis = currentMillis;
 
-    if (needsWater()){
-      pumpWater();
-    }
+    //adjustLights(); 
+    
   }
+ 
+  if (currentMillis - pumpCheckPreviousMillis >= pumpCheckInterval) {
+    pumpCheckPreviousMillis = currentMillis;
 
-  
+     if (needsWater()) pumpWater();
+     if (needsWater()) {
+       pumpCheckInterval = 5000;
+     } else  pumpCheckInterval = pumpInterval;
+  }
   
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     logData(); //to SDcard
-    sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
+    //sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
   }
   checkAirHumidity();
   
