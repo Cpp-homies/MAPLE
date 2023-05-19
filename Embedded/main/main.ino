@@ -32,6 +32,9 @@
 #define JSON_CONFIG_FILE "/config_maple_user.json"
 //rotary
 #define CLICKS_PER_STEP   4
+#define MIN_POS 0
+#define MAX_POS 3
+#define INCREMENT 1
 //pump motor
 #define motorInterfaceType 1
 //GPIO pins
@@ -70,10 +73,15 @@ uint16_t lightCutOff = 90;
 uint16_t lightMax = 10;
 uint16_t pumpTriggerPercent = 20;
 uint8_t brightness;
-int pumpSpeed = 3000;
+int pumpSpeed = 700;
 int fanSpeed = 240; //190-255
 bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
+bool executeMenu = false;
+bool inWifiConfig = false;
+bool offlineMode = false;
+uint8_t menuPosition = 0;
+bool reset = false;
 const char *dataFile = "/mapleData.csv"; //data logging file path
 hw_timer_t *timer = NULL; //rotary timer
 uint32_t I2Cfreq = 100000;
@@ -441,9 +449,10 @@ void setup() {
   ledcAttachPin(FAN, pwmChannel_2);
   
   display.setTextColor(WHITE);
-  displayBoot();
+  
+  initRotary();
 
-  configWifi();
+  configWifi(false);
 
 
   // Hash the username and password obtained from the user and store it to the global variables
@@ -462,10 +471,11 @@ void setup() {
   
   initSDcard();
   
-  initRotary();
+  
   
   // execute the listener server on a different core (core 0)
-  xTaskCreatePinnedToCore(
+  if(!offlineMode){
+    xTaskCreatePinnedToCore(
                     Listener,   /* Task function. */
                     "Listener",     /* name of task. */
                     10000,       /* Stack size of task */
@@ -473,6 +483,8 @@ void setup() {
                     1,           /* priority of the task */
                     &listenerHandle,      /* Task handle to keep track of created task */
                     0);          /* pin task to core 0 */  
+  }
+  
   
 }
 
@@ -486,9 +498,9 @@ void IRAM_ATTR handleLoop() {
 }
 
 void initRotary(){
-  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP);
-  r.setRightRotationHandler(screenModeSoil);
-  r.setLeftRotationHandler(screenModeAir); 
+  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP, MIN_POS, MAX_POS, 0, INCREMENT);
+  r.setRightRotationHandler(screenModeLeft);
+  r.setLeftRotationHandler(screenModeRight); 
   b.begin(BUTTON_PIN);
   b.setTapHandler(click);
   b.setLongClickHandler(resetPosition);
@@ -503,28 +515,46 @@ void initRotary(){
 
 
 //when turned left
-void screenModeAir(ESPRotary& r){
-  screenMode = 0;
+void screenModeLeft(ESPRotary& r){
+  if (screenMode == 2){
+    menuPosition = r.getPosition();
+  } else {
+    screenMode = 0;
+  }
+  
   Serial.println(r.directionToString(r.getDirection()));
 
 }
 
 //when turned right
-void screenModeSoil(ESPRotary& r){
-  screenMode = 1;
+void screenModeRight(ESPRotary& r){
+  if (screenMode == 2){
+    menuPosition = r.getPosition();
+  } else {
+    screenMode = 1;
+  }
+  
   Serial.println(r.directionToString(r.getDirection()));
 }
 
 // single click
 void click(Button2& btn) {
-  Serial.println("Click!");
+
+  r.resetPosition();
+  if(inWifiConfig){
+    wm.stopConfigPortal();
+    offlineMode = true;
+  } else if(screenMode == 2){
+    executeMenu = true;
+  } else {
+    screenMode = 2;
+  }
+  
 }
 
 // long click
 void resetPosition(Button2& btn) {
-  r.resetPosition();
-  Serial.println("Reset!");
-  esp_restart();
+  reset = true;
 }
 /////////////////////////////////////////////////////////////////
 //SDcard methods
@@ -673,9 +703,11 @@ void configModeCallback(WiFiManager *myWiFiManager){
   Serial.println(WiFi.softAPIP());
 }
 
-void configWifi() {
+void configWifi(bool config) {
   // Change to true when testing to force configuration every time we run
-  bool forceConfig = false;
+  inWifiConfig = true;
+  displayBoot();
+  bool forceConfig = config;
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
   {
@@ -705,33 +737,46 @@ void configWifi() {
   // Add all defined parameters
   wm.addParameter(&custom_text_box_username);
   wm.addParameter(&custom_text_box_password);
- 
+  //wm.setConfigPortalBlocking(false);
   if (forceConfig)
     // Run if we need a configuration
   {
     if (!wm.startConfigPortal("M.A.P.L.E.", "homeworkhomies"))
     {
-      Serial.println("failed to connect and hit timeout");
-      delay(3000);
+      //Serial.println("failed to connect and hit timeout");
+      //delay(3000);
       //reset and try again, or maybe put it to deep sleep
-      ESP.restart();
+      //ESP.restart();
+      display.clearDisplay();
+      display.setTextColor(SSD1306_WHITE);
+      display.setTextSize(2);
+      display.setCursor(0, 20);
+      display.print("Offline");
+      display.display();
       delay(5000);
+      inWifiConfig = false;
+      return;
     }
   }
   else
   {
     if (!wm.autoConnect("M.A.P.L.E.", "homeworkhomies"))
     {
-      Serial.println("failed to connect and hit timeout");
-      delay(3000);
-      // if we still have not connected restart and try all over again
-      ESP.restart();
+      display.clearDisplay();
+      display.setTextColor(SSD1306_WHITE);
+      display.setTextSize(2);
+      display.setCursor(0, 20);
+      display.println("Offline");
+      display.display();
       delay(5000);
+      inWifiConfig = false;
+      return;
+      
     }
   }
  
   // If we get here, we are connected to the WiFi
- 
+  inWifiConfig = false;
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
@@ -778,6 +823,7 @@ void configWifi() {
 void displaySoilData(){
   display.clearDisplay();
   // display temperature
+  display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
   display.setCursor(0,0);
   display.print("Soil humidity:");
@@ -801,6 +847,7 @@ void displaySoilData(){
 void displayTempHumidity(){
   display.clearDisplay();
   // display temperature
+  display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
   display.setCursor(0,0);
   display.print("Temperature: ");
@@ -841,9 +888,55 @@ void displayLightIntensity(){
 
 void displayBoot(){
   display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(20, 5);
+  display.println("LOGIN WIFI ...");
+  display.println("");
+  display.setCursor(40, display.getCursorY());
+  display.println("OR");
+  display.println("");
+  display.println("CONTINUE OFFLINE?");
+  display.println("");
+  display.setTextColor(SSD1306_BLACK,SSD1306_WHITE);
+  display.setCursor(50, display.getCursorY());
+  display.println(" YES ");
+  display.display();
+}
+
+void displayMenu(){
+  display.clearDisplay();
+  const char *options[4] = { 
+     
+    " WIFI LOGIN ", 
+    " WATERING THRESHOLD ", 
+    " LIGHT THRESHOLD ",
+    " EXIT " 
+  };
+  display.setCursor(40, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("MENU");
+  display.println("");
+  display.setCursor(0, 15);
+  display.setTextSize(1);
+  for(int i=0;i < 4; i++) {
+      display.setCursor(0, display.getCursorY()+4);
+      if(i == menuPosition) {
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.println(options[i]);
+      } else {
+        display.setTextColor(SSD1306_WHITE);
+        display.println(options[i]);
+      }
+    }
+  display.display();
+}
+
+void displayPumping(){
+  display.clearDisplay();
   display.setTextSize(2);
   display.setCursor(5, 25);
-  display.print("M.A.P.L.E.");
+  display.print("Pumping...");
   display.display();
 }
 /////////////////////////////////////////////////////////////////
@@ -882,13 +975,15 @@ bool needsWater(){
 void pumpWater(){
   
   digitalWrite(PUMP_POWER,HIGH);
-  
+  displayPumping();
   for(int i = 0; i<300; ++i){
-
+  //for(;;){
+    
     digitalWrite(STEP, HIGH);
     delayMicroseconds(pumpSpeed);
     digitalWrite(STEP, LOW);
     delayMicroseconds(pumpSpeed);
+    
   }
   
   digitalWrite(PUMP_POWER,LOW);
@@ -921,12 +1016,35 @@ float convertToSoilHumidity(uint16_t analogInput){
 }
 
 void loop() {
-  
+  if(reset) ESP.restart();
   
   if (screenMode == 0){
     displayTempHumidity();
-  } else {
+  } else if (screenMode == 1) {
     displaySoilData();
+  } else {
+    displayMenu();
+    if(executeMenu){
+      switch(menuPosition){
+        
+        case 0:
+          display.clearDisplay();
+          display.setTextSize(2);
+          display.setTextColor(SSD1306_WHITE);
+          display.setCursor(0, 40);
+          display.print("Resetting...");
+          display.display();
+          WiFi.disconnect(false,true);
+          delay(2000);
+          wm.resetSettings();
+          delay(2000);
+          ESP.restart();
+        case 3:
+          screenMode = 1;
+      }
+      executeMenu = false;
+    }
+    
   }
   
   
@@ -944,7 +1062,7 @@ void loop() {
   if (currentMillis - pumpCheckPreviousMillis >= pumpCheckInterval) {
     pumpCheckPreviousMillis = currentMillis;
 
-     if (needsWater()) pumpWater();
+     //if (needsWater()) pumpWater();
      if (needsWater()) {
        pumpCheckInterval = 5000;
      } else  pumpCheckInterval = pumpInterval;
