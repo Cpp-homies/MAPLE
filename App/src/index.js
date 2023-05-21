@@ -278,3 +278,9 @@ export function clearData() {
 if (userId !== null) {
     startInterval();
 }
+
+// Register the service worker
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+        .then(function () { console.log('Service Worker Registered'); });
+}  
