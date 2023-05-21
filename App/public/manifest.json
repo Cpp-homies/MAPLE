@@ -1,0 +1,22 @@
+{
+    "short_name": "MAPLE",
+    "name": "Modular Automated Plant Life Enclosure",
+    "icons": [
+      {
+        "src": "/media/maple-logo-dalle-generated-192.webp",
+        "type": "image/webp",
+        "sizes": "192x192"
+      },
+      {
+        "src": "/media/maple-logo-dalle-generated-512.webp",
+        "type": "image/webp",
+        "sizes": "512x512"
+      }
+    ],
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000",
+    "prefer_related_applications": false
+  }
+  
