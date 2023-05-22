@@ -499,8 +499,8 @@ void IRAM_ATTR handleLoop() {
 
 void initRotary(){
   r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP, MIN_POS, MAX_POS, 0, INCREMENT);
-  r.setRightRotationHandler(screenModeLeft);
-  r.setLeftRotationHandler(screenModeRight); 
+  r.setRightRotationHandler(screenModeRight);
+  r.setLeftRotationHandler(screenModeLeft); 
   b.begin(BUTTON_PIN);
   b.setTapHandler(click);
   b.setLongClickHandler(resetPosition);
@@ -518,6 +518,7 @@ void initRotary(){
 void screenModeLeft(ESPRotary& r){
   if (screenMode == 2){
     menuPosition = r.getPosition();
+    Serial.println(menuPosition);
   } else {
     screenMode = 0;
   }
@@ -530,6 +531,7 @@ void screenModeLeft(ESPRotary& r){
 void screenModeRight(ESPRotary& r){
   if (screenMode == 2){
     menuPosition = r.getPosition();
+    Serial.println(menuPosition);
   } else {
     screenMode = 1;
   }
@@ -540,7 +542,7 @@ void screenModeRight(ESPRotary& r){
 // single click
 void click(Button2& btn) {
 
-  r.resetPosition();
+  //r.resetPosition();
   if(inWifiConfig){
     wm.stopConfigPortal();
     offlineMode = true;
@@ -1025,6 +1027,7 @@ void loop() {
   } else {
     displayMenu();
     if(executeMenu){
+      //Serial.println(menuPosition);
       switch(menuPosition){
         
         case 0:
@@ -1040,9 +1043,11 @@ void loop() {
           delay(2000);
           ESP.restart();
         case 3:
-          screenMode = 1;
+          screenMode = 0;
+
       }
       executeMenu = false;
+      r.resetPosition();
     }
     
   }
