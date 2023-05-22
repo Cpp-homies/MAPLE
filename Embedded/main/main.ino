@@ -72,7 +72,9 @@ uint16_t analogDry = 2950;
 uint16_t lightCutOff = 90;
 uint16_t lightMax = 10;
 uint16_t pumpTriggerPercent = 20;
+int pumpStopPercent = 50;
 uint8_t brightness;
+int lightPercentage = 100;
 int pumpSpeed = 700;
 int fanSpeed = 240; //190-255
 bool fanOn = false;
@@ -516,10 +518,10 @@ void initRotary(){
 
 //when turned left
 void screenModeLeft(ESPRotary& r){
-  if (screenMode == 2){
+  if (screenMode == 2 || screenMode == 3 || screenMode == 4){
     menuPosition = r.getPosition();
     Serial.println(menuPosition);
-  } else {
+  } else if(screenMode == 1){
     screenMode = 0;
   }
   
@@ -529,10 +531,10 @@ void screenModeLeft(ESPRotary& r){
 
 //when turned right
 void screenModeRight(ESPRotary& r){
-  if (screenMode == 2){
+  if (screenMode == 2 || screenMode == 3 || screenMode == 4){
     menuPosition = r.getPosition();
     Serial.println(menuPosition);
-  } else {
+  } else if (screenMode == 0){
     screenMode = 1;
   }
   
@@ -548,8 +550,23 @@ void click(Button2& btn) {
     offlineMode = true;
   } else if(screenMode == 2){
     executeMenu = true;
-  } else {
+  } else if(screenMode == 1 || screenMode == 0){
     screenMode = 2;
+  } else if(screenMode == 3){
+    screenMode = 31;
+    pumpTriggerPercent = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(50);
+  } else if(screenMode == 4){
+    lightPercentage = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(3);
+    screenMode = 0;
+  } else if(screenMode == 31){
+    pumpStopPercent = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(3);
+    screenMode = 0;
   }
   
 }
@@ -941,6 +958,44 @@ void displayPumping(){
   display.print("Pumping...");
   display.display();
 }
+
+void displayWateringOption(){
+  
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Dry %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
+  display.display();
+}
+
+void displayWateringOption2(){
+  
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Wet %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
+  display.display();
+}
+
+void displayLightOption(){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Light %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
+  display.display();
+}
 /////////////////////////////////////////////////////////////////
 //self-explanatory
 
@@ -978,7 +1033,7 @@ void pumpWater(){
   
   digitalWrite(PUMP_POWER,HIGH);
   displayPumping();
-  for(int i = 0; i<300; ++i){
+  for(int i = 0; i<500; ++i){
   //for(;;){
     
     digitalWrite(STEP, HIGH);
@@ -1024,7 +1079,7 @@ void loop() {
     displayTempHumidity();
   } else if (screenMode == 1) {
     displaySoilData();
-  } else {
+  } else if (screenMode == 2) {
     displayMenu();
     if(executeMenu){
       //Serial.println(menuPosition);
@@ -1042,14 +1097,34 @@ void loop() {
           wm.resetSettings();
           delay(2000);
           ESP.restart();
+          break;
+        case 1:
+          Serial.println("MODE 3");
+          screenMode = 3;
+          r.setUpperBound(100);
+          
+          break;
+        case 2:
+          Serial.println("MODE 4");
+          screenMode = 4;
+          r.setUpperBound(100);
+          break;
         case 3:
           screenMode = 0;
+          break;
 
       }
       executeMenu = false;
+      menuPosition = 0;
       r.resetPosition();
     }
     
+  } else if (screenMode == 3){    
+    displayWateringOption();
+  } else if (screenMode == 4){    
+    displayLightOption();
+  } else if (screenMode == 31){
+    displayWateringOption2();
   }
   
   
