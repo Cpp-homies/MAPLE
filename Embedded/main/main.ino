@@ -73,9 +73,10 @@ uint16_t lightCutOff = 90;
 uint16_t lightMax = 10;
 uint16_t pumpTriggerPercent = 20;
 int pumpStopPercent = 50;
+bool watering = false;
 uint8_t brightness;
 int lightPercentage = 100;
-int pumpSpeed = 700;
+int pumpSpeed = 1000;
 int fanSpeed = 240; //190-255
 bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
@@ -1029,7 +1030,11 @@ void adjustLights(){
 }
 
 bool needsWater(){
-  
+  if(watering){
+    if(convertToSoilHumidity(analogRead(SOIL_SENSOR))<pumpStopPercent){
+      return true;
+    } else return false;
+  }
   if(convertToSoilHumidity(analogRead(SOIL_SENSOR))<pumpTriggerPercent){
     return true;
   } else return false;
@@ -1148,10 +1153,14 @@ void loop() {
   if (currentMillis - pumpCheckPreviousMillis >= pumpCheckInterval) {
     pumpCheckPreviousMillis = currentMillis;
 
-     //if (needsWater()) pumpWater();
+     if (needsWater()) pumpWater();
      if (needsWater()) {
        pumpCheckInterval = 5000;
-     } else  pumpCheckInterval = pumpInterval;
+       watering = true;
+     } else  {
+       pumpCheckInterval = pumpInterval;
+       watering = false;
+     }
   }
   
   if (currentMillis - previousMillis >= interval) {
