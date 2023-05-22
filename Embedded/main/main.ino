@@ -1007,7 +1007,12 @@ void adjustLights(){
   
   //Serial.println(lightIntensity);
   int brightnessPercent = map(lightIntensity, 0, 4095, 0, 100);
-  
+  if(brightnessPercent>=lightPercentage){
+    brightness=0;
+  } else {
+    brightness = map(lightPercentage-brightnessPercent,0,100,0,255);
+  }
+  /*
   if(brightnessPercent<lightCutOff){
     if(brightnessPercent>lightMax){
       brightness = map(brightnessPercent,lightCutOff,lightMax,0,255);
@@ -1018,6 +1023,7 @@ void adjustLights(){
   } else {
     brightness = 0;
   }
+  */
   //ledcWrite(pwmChannel_0, 255);
   ledcWrite(pwmChannel_0, brightness);
 }
@@ -1130,12 +1136,12 @@ void loop() {
   
   unsigned long currentMillis = millis();
 
-  adjustLights(); 
+  //adjustLights(); 
 
   if (currentMillis - lightCheckPreviousMillis >= lightCheckInterval) {
     lightCheckPreviousMillis = currentMillis;
 
-    //adjustLights(); 
+    adjustLights(); 
     
   }
  
