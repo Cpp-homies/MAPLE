@@ -33,7 +33,7 @@
 //rotary
 #define CLICKS_PER_STEP   4
 #define MIN_POS 0
-#define MAX_POS 3
+#define MAX_POS 4
 #define INCREMENT 1
 //pump motor
 #define motorInterfaceType 1
@@ -74,10 +74,12 @@ uint16_t lightMax = 10;
 uint16_t pumpTriggerPercent = 20;
 int pumpStopPercent = 50;
 bool watering = false;
+String pumpingTime = "N/A";
 uint8_t brightness;
 int lightPercentage = 100;
 int pumpSpeed = 1000;
 int fanSpeed = 240; //190-255
+int fanThreshold = 50;
 bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
 bool executeMenu = false;
@@ -97,6 +99,8 @@ HardwareSerial SerialPort(2); //UART2
 ESPRotary r;
 Button2 b;
 AccelStepper stepper(motorInterfaceType, STEP, DIR);
+
+String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
 
 unsigned long previousMillis = 0;
 const long interval = 30000;
@@ -422,6 +426,8 @@ void setup() {
     //for(;;);
   }
   Serial.println("Display connected.");
+  displayMaple();
+
   bool status = bme.begin(0x76,&I2C);  
   if (!status) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
@@ -455,7 +461,11 @@ void setup() {
   
   initRotary();
 
+  
+
   configWifi(false);
+
+  initTime(myTimezone);
 
 
   // Hash the username and password obtained from the user and store it to the global variables
@@ -551,7 +561,7 @@ void click(Button2& btn) {
     offlineMode = true;
   } else if(screenMode == 2){
     executeMenu = true;
-  } else if(screenMode == 1 || screenMode == 0){
+  } else if( offlineMode && (screenMode == 1 || screenMode == 0)){
     screenMode = 2;
   } else if(screenMode == 3){
     screenMode = 31;
@@ -561,12 +571,17 @@ void click(Button2& btn) {
   } else if(screenMode == 4){
     lightPercentage = r.getPosition();
     r.resetPosition();
-    r.setUpperBound(3);
+    r.setUpperBound(4);
     screenMode = 0;
   } else if(screenMode == 31){
     pumpStopPercent = r.getPosition();
     r.resetPosition();
-    r.setUpperBound(3);
+    r.setUpperBound(4);
+    screenMode = 0;
+  } else if(screenMode == 5){
+    fanThreshold = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(4);
     screenMode = 0;
   }
   
@@ -576,6 +591,32 @@ void click(Button2& btn) {
 void resetPosition(Button2& btn) {
   reset = true;
 }
+
+/////////////////////////////////////////////////////////////////
+//Time and timezone methods
+
+void setTimezone(String timezone){
+  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
+  setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+  tzset();
+}
+
+// Connect to NTP server and adjust timezone
+void initTime(String timezone){
+  struct tm timeinfo;
+  Serial.println("Setting up time");
+  configTime(0, 0, "pool.ntp.org");    // First connect to NTP server, with 0 TZ offset
+  if(!getLocalTime(&timeinfo)){
+    Serial.println(" Failed to obtain time");
+    return;
+  }
+  Serial.println("Got the time from NTP");
+  // Now we can set the real timezone
+  setTimezone(timezone);
+}
+
+/////////////////////////////////////////////////////////////////
+
 /////////////////////////////////////////////////////////////////
 //SDcard methods
 
@@ -726,7 +767,7 @@ void configModeCallback(WiFiManager *myWiFiManager){
 void configWifi(bool config) {
   // Change to true when testing to force configuration every time we run
   inWifiConfig = true;
-  displayBoot();
+  
   bool forceConfig = config;
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
@@ -761,6 +802,8 @@ void configWifi(bool config) {
   if (forceConfig)
     // Run if we need a configuration
   {
+    
+    displayBoot();
     if (!wm.startConfigPortal("M.A.P.L.E.", "homeworkhomies"))
     {
       //Serial.println("failed to connect and hit timeout");
@@ -780,6 +823,7 @@ void configWifi(bool config) {
   }
   else
   {
+    displayBoot();
     if (!wm.autoConnect("M.A.P.L.E.", "homeworkhomies"))
     {
       display.clearDisplay();
@@ -835,7 +879,7 @@ void configWifi(bool config) {
     saveConfigFile();
   }
 
-  configTime(0, 0, "pool.ntp.org");
+  //configTime(0, 0, "pool.ntp.org");
 }
 /////////////////////////////////////////////////////////////////
 //display methods
@@ -856,9 +900,11 @@ void displaySoilData(){
   display.setTextSize(1);
   display.setCursor(0, 35);
   display.print("Last watering: ");
-  display.setTextSize(2);
-  display.setCursor(0, 45);
-  display.print("Some time");
+  display.setTextSize(1);
+  //display.setCursor(0, 45);
+  display.println("");
+  display.println("");
+  display.print(pumpingTime);
    
   
   display.display();  
@@ -906,49 +952,49 @@ void displayLightIntensity(){
   display.display();
 }
 
+void displayMaple(){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 15);
+  display.println("M.A.P.L.E.");
+  display.display();
+}
+
 void displayBoot(){
   display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(20, 5);
-  display.println("LOGIN WIFI ...");
-  display.println("");
-  display.setCursor(40, display.getCursorY());
-  display.println("OR");
-  display.println("");
-  display.println("CONTINUE OFFLINE?");
-  display.println("");
-  display.setTextColor(SSD1306_BLACK,SSD1306_WHITE);
-  display.setCursor(50, display.getCursorY());
-  display.println(" YES ");
+  display.setTextSize(2);
+  display.setCursor(0, 0);
+  display.println("LOG IN ...");
+  display.setCursor(0, 25);
+  //display.setCursor(40, display.getCursorY());
+  display.println("    OR    ");
+  display.setCursor(0, 45);
+  display.println(" CONTINUE?");
   display.display();
 }
 
 void displayMenu(){
   display.clearDisplay();
-  const char *options[4] = { 
+  const char *options[5] = { 
      
-    " WIFI LOGIN ", 
-    " WATERING THRESHOLD ", 
-    " LIGHT THRESHOLD ",
-    " EXIT " 
+    "   WIFI   \n   LOGIN  ", 
+    " WATERING \n THRESHOLD", 
+    "  LIGHT   \n THRESHOLD",
+    "   FAN    \n THRESHOLD",
+    "   EXIT   " 
   };
+  
   display.setCursor(40, 0);
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
   display.println("MENU");
   display.println("");
-  display.setCursor(0, 15);
-  display.setTextSize(1);
-  for(int i=0;i < 4; i++) {
-      display.setCursor(0, display.getCursorY()+4);
-      if(i == menuPosition) {
-        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-        display.println(options[i]);
-      } else {
-        display.setTextColor(SSD1306_WHITE);
-        display.println(options[i]);
-      }
-    }
+  
+    display.setCursor(0, 25);
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_BLACK,SSD1306_WHITE);
+    display.println(options[menuPosition]);
   display.display();
 }
 
@@ -992,6 +1038,18 @@ void displayLightOption(){
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 4);
   display.println("Light %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
+  display.display();
+}
+
+void displayFanOption(){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Air hum %");
   display.println("");
   display.print(r.getPosition());
   display.print("%");
@@ -1060,7 +1118,7 @@ void pumpWater(){
 
 void checkAirHumidity(){
   
-  if(bme.readHumidity()>50.0){
+  if(bme.readHumidity()>fanThreshold){
     if(!fanOn){
       ledcWrite(pwmChannel_2, fanSpeed);
       Serial.println("FAN ON");
@@ -1084,7 +1142,21 @@ float convertToSoilHumidity(uint16_t analogInput){
 }
 
 void loop() {
-  if(reset) ESP.restart();
+  if(reset) {
+
+    display.clearDisplay();
+          display.setTextSize(2);
+          display.setTextColor(SSD1306_WHITE);
+          display.setCursor(0, 40);
+          display.print("Resetting...");
+          display.display();
+          WiFi.disconnect(false,true);
+          delay(2000);
+          wm.resetSettings();
+          delay(2000);
+          ESP.restart();
+          
+  }
   
   if (screenMode == 0){
     displayTempHumidity();
@@ -1101,7 +1173,7 @@ void loop() {
           display.setTextSize(2);
           display.setTextColor(SSD1306_WHITE);
           display.setCursor(0, 40);
-          display.print("Resetting...");
+          display.print("Processing\n   ....   ");
           display.display();
           WiFi.disconnect(false,true);
           delay(2000);
@@ -1121,6 +1193,10 @@ void loop() {
           r.setUpperBound(100);
           break;
         case 3:
+          screenMode = 5;
+          r.setUpperBound(100);
+          break;
+        case 4:
           screenMode = 0;
           break;
 
@@ -1136,6 +1212,8 @@ void loop() {
     displayLightOption();
   } else if (screenMode == 31){
     displayWateringOption2();
+  } else if (screenMode = 5){
+    displayFanOption();
   }
   
   
@@ -1158,8 +1236,18 @@ void loop() {
        pumpCheckInterval = 5000;
        watering = true;
      } else  {
-       pumpCheckInterval = pumpInterval;
-       watering = false;
+       if(offlineMode){
+
+       } else{
+         pumpCheckInterval = pumpInterval;
+        watering = false;
+        char timeStr[20];
+        time_t now = time(nullptr);
+        struct tm* timeinfo = localtime(&now);
+        strftime(timeStr, sizeof(timeStr), "%y/%m/%d %H:%M:%S", timeinfo);
+        pumpingTime = String(timeStr);
+      }
+       
      }
   }
   
