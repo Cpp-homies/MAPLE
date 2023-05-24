@@ -87,6 +87,11 @@ def make_sensordataDict(timestamp, user_id, temperature, air_humidity, soil_humi
     
     return result_dict
 
+# Helper function that return the current time as string with the format "%Y_%m_%d_%H_%M_%S"
+def get_current_time_string():
+    return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
+
 # create the schema for the student
 class UserAuthModel(db.Model):
     user_id = db.Column(db.String(20), primary_key=True)
@@ -273,7 +278,7 @@ class SensorData(Resource):
     
     # Get sensor data in a time range
     @app.route('/get-range/<string:user_id>/<string:timerange>', methods=['GET'])
-    @cross_origin(supports_credentials=True)#here3
+    @cross_origin(supports_credentials=True)
     def get_in_range(user_id, timerange):
         #### NOTE #######
         # Currently disable authentication for faster testing, remember to uncomment this part later
@@ -287,10 +292,16 @@ class SensorData(Resource):
         try:
             # Convert the given range (from start time to end time) into two datetime objects
             start_time_str, end_time_str = timerange.split('-')
-            start_time = datetime.strptime(start_time_str, "%Y_%m_%d_%H_%M_%S")
+            start_time = datetime.strptime(start_time_str, "%Y_%m_%d_%H_%M_%S")#here3
+            
+            # Convert the shorthand 'now' into a time string of the current time if needed
+            if end_time_str == 'now':
+                end_time_str = get_current_time_string() # Get the current time as string
+
+            print(end_time_str)
             end_time = datetime.strptime(end_time_str, "%Y_%m_%d_%H_%M_%S")
 
-             # Query data by user ID
+            # Query data by user ID
             results = SensorDataModel.query.filter_by(user_id=user_id).all()
             # print(results)
 
