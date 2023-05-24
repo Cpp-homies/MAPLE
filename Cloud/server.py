@@ -50,6 +50,16 @@ class SensorDataModel(db.Model):
     air_humidity = db.Column(db.Float, nullable=False)
     soil_humidity = db.Column(db.Float, nullable=False)
 
+    # Return a dictionary representation of the data model
+    def to_dict(self):
+        return {
+            'timestamp': self.timestamp.strftime("%Y_%m_%d_%H_%M_%S"),
+            'user_id': self.user_id,
+            'temperature': self.temperature,
+            'air_humidity': self.air_humidity,
+            'soil_humidity': self.soil_humidity
+        }
+
     def __repr__(self):
         return f"Data(timestamp={self.timestamp}, user_id={self.user_id}, temp={self.temperature}, air_humid={self.air_humidity}, soil_humid={self.soil_humidity})"
 
@@ -58,9 +68,24 @@ def str_to_datamodelTime(input_string):
     
     return datetime.strptime(input_string, "%Y_%m_%d_%H_%M_%S")
 
-# Helper function that takes in a SensorDataModel type return a corresponding dictionary #here
-def sensordata_to_dict(sensor_data):
-    result_dict = marshal(sensor_data, resource_fields)
+# Helper function that takes in an datetime object and return its string representation in the form "YYYY_mm_dd_HH_MM_SS"
+def datamodelTime_to_str(datetime_obj):
+    
+    return datetime_obj.strftime("%Y_%m_%d_%H_%M_%S")
+
+# Helper function that return a dictionary with the given attributes and keys
+# according to the resource fields. Similar to the automatic marshal(sensor_data, resource_fields) call 
+# but more customizable 
+def make_sensordataDict(timestamp, user_id, temperature, air_humidity, soil_humidity):
+    # 'timestamp': fields.String,
+    # 'user_id': fields.String,
+    # 'temperature': fields.Float,
+    # 'air_humidity':fields.Float,
+    # 'soil_humidity':fields.Float
+    result_dict = {'timestamp': timestamp, 'user_id': user_id, \
+                    'temperature': float(temperature), 'air_humidity': float(air_humidity), 'soil_humidity': float(soil_humidity)}
+    
+    return result_dict
 
 # create the schema for the student
 class UserAuthModel(db.Model):
@@ -237,11 +262,63 @@ class SensorData(Resource):
             if not result:
                 abort(404, message="Timestamp not found")
             
-            return marshal(result, resource_fields)
+            # Convert the SensorData object result into a dictionary form 
+            result_dict = marshal(result, resource_fields)
+
+            result_dict['timestamp'] = timestampstr # change the timestamp into the correct displaying format 
+            return result_dict
         except ValueError as e:
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
     
+    # Get sensor data in a time range
+    @app.route('/get-range/<string:user_id>/<string:timerange>', methods=['GET'])
+    @cross_origin(supports_credentials=True)#here3
+    def get_in_range(user_id, timerange):
+        #### NOTE #######
+        # Currently disable authentication for faster testing, remember to uncomment this part later
+        #################
+
+        # Check if this data access is authorized (by loging in) or not
+        # if not check_user_auth(user_id):
+        #     return {'message': 'Unauthorized access'}, 401
+
+
+        try:
+            # Convert the given range (from start time to end time) into two datetime objects
+            start_time_str, end_time_str = timerange.split('-')
+            start_time = datetime.strptime(start_time_str, "%Y_%m_%d_%H_%M_%S")
+            end_time = datetime.strptime(end_time_str, "%Y_%m_%d_%H_%M_%S")
+
+             # Query data by user ID
+            results = SensorDataModel.query.filter_by(user_id=user_id).all()
+            # print(results)
+
+            # Check if user ID exists
+            if not results:
+                abort(404, message="User ID not found")
+
+            # Filter data by timestamp
+            result_raw = data_in_range = SensorDataModel.query.filter( \
+                                SensorDataModel.user_id == user_id, \
+                                SensorDataModel.timestamp.between(start_time, end_time) \
+                            ).all()
+
+            # Check if timestamp exists
+            if not result_raw:
+                abort(404, message="Timestamp not found")#here4
+            
+            # Convert raw result to json
+            result_json = jsonify([data.to_dict() for data in data_in_range])
+            # # Convert the SensorData object result into a dictionary form 
+            # result_dict = marshal(result, resource_fields)
+
+            # result_dict['timestamp'] = timestampstr # change the timestamp into the correct displaying format 
+            return result_json
+        except ValueError as e:
+            # Catch and handle ValueError exceptions
+            abort(400, message="Invalid arguments")
+
     # update the live data from the ESP
     async def update_live_data(self, client):
          # Add the request to the pending request list for the ESP
@@ -300,7 +377,7 @@ class SensorData(Resource):
             data = SensorDataModel(timestamp=timestamp_converted, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
             db.session.add(data)
             db.session.commit()
-            return marshal(data, resource_fields), 201#here1
+            return make_sensordataDict(timestampstr, user_id, args['temp'], args['air_humid'], args['soil_humid'])
         except ValueError as e:
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
@@ -343,18 +420,18 @@ class SensorData(Resource):
                 return client.live_data, 201
             
             else:
-                
+                timestamp_converted = str_to_datamodelTime(timestampstr)#here
 
                 # args = sensor_esp_put_args.parse_args()
                 # check whether the timestamp is taken or not
-                result = SensorDataModel.query.filter_by(timestamp=timestampstr, user_id=user_id).first()
+                result = SensorDataModel.query.filter_by(timestamp=timestamp_converted, user_id=user_id).first()
                 # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
                 #       + args['humid'] + '}')
                 if result:
-                    abort(409, message='Timestamp already exist')
+                    abort(409, message='Timestamp already exist')#here4
 
                 # create a SensorDataModel object and add it to the session
-                data = SensorDataModel(timestamp=timestampstr, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
+                data = SensorDataModel(timestamp=timestamp_converted, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
                 db.session.add(data)
                 db.session.commit()
                 return marshal(data, resource_fields), 201
@@ -592,6 +669,7 @@ class Authentication(Resource):
             abort(400, message="Invalid arguments")
 
 api.add_resource(SensorData, "/sensordata/<string:user_id>/<string:timestampstr>")
+api.add_resource(SensorData, '/get-range/<string:user_id>/<string:timerange>', methods=['GET'], endpoint="get-range")
 api.add_resource(SensorData, "/delete-all/<string:user_id>", methods=['DELETE'], endpoint="delete-all")
 api.add_resource(Authentication, "/auth")
 api.add_resource(Authentication, "/auth/register", endpoint="register")
