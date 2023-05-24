@@ -1,5 +1,13 @@
 ## Change logs
 ### — Recent changes —
+### 24/05
+**App to Cloud interaction**
+
+- Data in a given time range can be requested through "/get-range/\<string:user_id\>/\<string:timerange\>"
+    The format of the timerange is "%Y_%m_%d_%H_%M_%S-%Y_%m_%d_%H_%M_%S", or in other words, two time instances with start and end separated by the hyphen '-' character. 
+
+    It is also possible to use the shorthand 'now' in place of the end time, which will result in a string with the form "%Y_%m_%d_%H_%M_%S-now". This will query data from the start time until the current time.
+    
 ### 05/05
 **App to Cloud interaction**  
 
