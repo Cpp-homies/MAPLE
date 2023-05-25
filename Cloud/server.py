@@ -36,7 +36,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] =  timedelta(minutes=59)
 db = SQLAlchemy(app)
 # cors = CORS(app, origins="*")
 Session(app)
-CORS(app)
+CORS(app, origins="*", supports_credentials=True)
 
 # Custom timestamp format to store in the DB
 custom_datetime_format = DATETIME(storage_format="%(year)04d_%(month)02d_%(day)02d_%(hour)02d_%(minute)02d_%(second)02d",
