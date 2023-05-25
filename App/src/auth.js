@@ -2,6 +2,9 @@ import { startInterval, stopInterval, clearData } from './index.js';
 
 const baseUrl = "https://cloud.kovanen.io";
 
+let serverStatus = false;
+const loginButton = document.getElementById("openLoginPopup");
+const registerButton = document.getElementById("openRegisterPopup");
 
 // Check if server is running on interval until it is
 let serverCheckInterval;
@@ -22,25 +25,43 @@ async function checkServer() {
             serverStatusElement.textContent = "Online";
             serverStatusElement.style.color = "green";
             clearInterval(serverCheckInterval);
+
+            serverStatus = true;
+            loginButton.removeAttribute("disabled");
+            registerButton.removeAttribute("disabled");
+
             return true;
         } else {
             console.error("Server is not running");
             serverStatusElement.textContent = "Offline";
             serverStatusElement.style.color = "red";
+
+            serverStatus = false;
+            loginButton.setAttribute("disabled", "");
+            registerButton.setAttribute("disabled", "");
+
             return false;
         }
     } catch (error) {
         console.error("Error fetching server status:", error);
         serverStatusElement.textContent = "Error";
         serverStatusElement.style.color = "red";
+
+        serverStatus = false;
+        loginButton.setAttribute("disabled", "");
+        registerButton.setAttribute("disabled", "");
+
         return false;
     }
 }
 
 
 async function sha256(input) {
+    console.log(input);
     const encoder = new TextEncoder();
+    console.log(encoder)
     const data = encoder.encode(input);
+    console.log(data)
     const digest = await crypto.subtle.digest('SHA-256', data);
     const array = new Uint8Array(digest);
     const hexCodes = Array.from(array).map((byte) => byte.toString(16).padStart(2, '0'));
@@ -95,6 +116,7 @@ async function login(event) {
 
     const userId = usernameInput.value;
     const password = passwordInput.value;
+    console.log(userId, password)
 
     const hashedUserId = await sha256(userId);
     const hashedPassword = await sha256(password);
@@ -147,7 +169,7 @@ function showUserLogout(userId) {
     userLogoutContainer.style.display = "flex";
 
     // Hide register and login buttons
-    document.getElementById("register").style.display = "none";
+    document.getElementById("openRegisterPopup").style.display = "none";
     document.getElementById("openLoginPopup").style.display = "none";
 }
 
@@ -157,7 +179,7 @@ function hideUserLogout() {
     userLogoutContainer.style.display = "none";
 
     // Show register and login buttons
-    document.getElementById("register").style.display = "inline-block";
+    document.getElementById("openRegisterPopup").style.display = "inline-block";
     document.getElementById("openLoginPopup").style.display = "inline-block";
 }
 
@@ -217,12 +239,71 @@ function hideErrorPopup() {
     errorPopup.style.display = "none";
 }
 
+function openLogin() {
+    if (document.getElementById("loginPopup").style.display === "inline-block") {
+        closeLogin();
+        return;
+    } else {
+        document.getElementById("loginPopup").style.display = "inline-block";
+    }
+}
+
+function closeLogin() {
+    document.getElementById("loginPopup").style.display = "none";
+}
+
+function openRegister() {
+    if (document.getElementById("registerPopup").style.display === "inline-block") {
+        closeLogin();
+        return;
+    } else {
+        document.getElementById("registerPopup").style.display = "inline-block";
+    }
+}
+
+function closeRegister() {
+    document.getElementById("registerPopup").style.display = "none";
+}
+
+//
+// Event listeners
+//
+
+// Close the popup if the user clicks outside of it
+window.addEventListener('click', function (event) {
+    var loginPopup = document.getElementById("loginPopup");
+    var registerPopup = document.getElementById("registerPopup");
+
+    if (event.target !== loginPopup && !loginPopup.contains(event.target) && event.target.id !== 'openLoginPopup') {
+        closeLogin();
+    }
+    if (event.target !== registerPopup && !registerPopup.contains(event.target) && event.target.id !== 'openRegisterPopup') {
+        closeRegister();
+    }
+});
+
+document.getElementById("openRegisterPopup").addEventListener('click', (event) => { 
+    if (serverStatus) {
+        openRegister();
+    }
+});
+
+document.getElementById("openLoginPopup").addEventListener('click', (event) => {
+    if (serverStatus) {
+        openLogin();
+    }
+});
+
 
 document.getElementById("register-submit").addEventListener("click", (event) => {
-    register(event);
+    if (serverStatus) {
+        register(event);
+    }
 });
 document.getElementById("login-submit").addEventListener('click', (event) => {
-    login(event);
+    if (serverStatus) {
+        login(event);
+    }
 });
 document.getElementById("logout").addEventListener('click', (event) => {
     logout(event);
