@@ -34,6 +34,8 @@ app.config.from_object(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
 app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=False)
 app.config['PERMANENT_SESSION_LIFETIME'] =  timedelta(minutes=59)
+app.config['UPLOAD_FOLDER'] = 'images_'
+
 
 db = SQLAlchemy(app)
 # cors = CORS(app, origins="*")
@@ -412,7 +414,7 @@ class SensorData(Resource):
             user_id = args['user_id']
             # print(args)
             # print(clients)
-            client = find_client(clients, user_id)
+            client = find_client(clients, user_id)#here
             if not client:
                 abort(404, message="User ID not found")
             else:
@@ -714,15 +716,17 @@ def get_server_online_status():
 
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
-    if 'file' not in request.files:
-        return "No file part", 400
+    # if 'file' not in request.files:
+    #     return "No file part", 400
     file = request.files['file']
     if file.filename == '':
         return "No selected file", 400
     if file:
         filename = secure_filename(file.filename)
-        file.save(os.path.join("/images_", filename))
-        return 'File successfully uploaded', 201
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return 'File successfully uploaded'
     
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
