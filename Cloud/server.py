@@ -312,7 +312,7 @@ class SensorData(Resource):
                 abort(404, message="User ID not found")
 
             # Filter data by timestamp
-            result_raw = data_in_range = SensorDataModel.query.filter( \
+            result_raw = SensorDataModel.query.filter( \
                                 SensorDataModel.user_id == user_id, \
                                 SensorDataModel.timestamp.between(start_time, end_time) \
                             ).all()
@@ -322,7 +322,7 @@ class SensorData(Resource):
                 abort(404, message="Timestamp not found")#here4
             
             # Convert raw result to json
-            result_json = jsonify([data.to_dict() for data in data_in_range])
+            result_json = jsonify([data.to_dict() for data in result_raw])
             # # Convert the SensorData object result into a dictionary form 
             # result_dict = marshal(result, resource_fields)
 
@@ -489,7 +489,7 @@ class SensorData(Resource):
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
     
-    @app.route('/datatable/<string:user_id>', methods=['GET'])
+    @app.route('/datatable/<string:user_id>', methods=['GET'])#here
     @cross_origin(supports_credentials=True)
     def get_data_table(user_id):
         #### NOTE #######
@@ -499,23 +499,43 @@ class SensorData(Resource):
         # Check if this data access is authorized (by loging in) or not
         # if not check_user_auth(user_id):
         #     return {'message': 'Unauthorized access'}, 401
+
+        ###
+        # OLD implementation
+        ###
         # Query all data rows from the database
-        rows = SensorDataModel.query.filter_by(user_id=user_id).all()
+        # rows = SensorDataModel.query.filter_by(user_id=user_id).all()
 
-        # Convert the data rows into a list of dictionaries
-        data_list = []
-        for row in rows:
-            data_dict = {
-                'timestamp': row.timestamp,
-                'user_id': row.user_id,
-                'temperature': row.temperature,
-                'air_humidity': row.air_humidity,
-                'soil_humidity': row.soil_humidity
-            }
-            data_list.append(data_dict)
+        # # Convert the data rows into a list of dictionaries
+        # data_list = []
+        # for row in rows:
+        #     data_dict = {
+        #         'timestamp': row.timestamp,
+        #         'user_id': row.user_id,
+        #         'temperature': row.temperature,
+        #         'air_humidity': row.air_humidity,
+        #         'soil_humidity': row.soil_humidity
+        #     }
+        #     data_list.append(data_dict)
 
-        # Return the list of data rows as a JSON response
-        return jsonify(data_list)
+        # # Return the list of data rows as a JSON response
+        # return jsonify(data_list)
+
+        # Query data by user ID
+        results = SensorDataModel.query.filter_by(user_id=user_id).all()
+        # print(results)
+
+        # Check if user ID exists
+        if not results:
+            abort(404, message="User ID not found")
+        
+        # Convert raw result to json
+        result_json = jsonify([data.to_dict() for data in results])
+        # # Convert the SensorData object result into a dictionary form 
+        # result_dict = marshal(result, resource_fields)
+
+        # result_dict['timestamp'] = timestampstr # change the timestamp into the correct displaying format 
+        return result_json
     
     # GET method to get the next request for the ESP to execute
     @app.route('/request-to-esp/<string:user_id>/<string:password>', methods=['GET'])
