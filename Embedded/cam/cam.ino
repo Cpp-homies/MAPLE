@@ -41,6 +41,9 @@ String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
 // Stores the camera configuration parameters
 camera_config_t config;
 
+long currentMillis = 0;
+long previousMillis = 0;
+long interval = 3600000;
 
 // Initializes the camera
 void configInitCamera(){
@@ -163,7 +166,7 @@ String getPictureFilename(){
     return "";
   }
   char timeString[20];
-  strftime(timeString, sizeof(timeString), "%Y-%m-%d_%H-%M-%S", &timeinfo);
+  strftime(timeString, sizeof(timeString), "%Y-%m-%d-%H-%M-%S", &timeinfo);
   Serial.println(timeString);
   String filename = "/picture_" + String(timeString) +".jpg";
   return filename; 
@@ -253,6 +256,11 @@ void setup() {
 
 void loop() {    
   // Take and Save Photo
-  takeSavePhoto();
-  delay(10000);
+  long currentMillis = millis();
+  if (previousMillis == 0 || (currentMillis - previousMillis >= interval)) {
+    previousMillis = currentMillis;
+    takeSavePhoto();    
+  }
+  
+  
 }

@@ -71,8 +71,8 @@ uint16_t analogWet = 1420;
 uint16_t analogDry = 2950;
 uint16_t lightCutOff = 90;
 uint16_t lightMax = 10;
-uint16_t pumpTriggerPercent = 20;
-int pumpStopPercent = 50;
+uint16_t pumpTriggerPercent = 30;
+int pumpStopPercent = 80;
 bool watering = false;
 String pumpingTime = "N/A";
 uint8_t brightness;
@@ -245,7 +245,7 @@ void Listener( void * pvParameters ){
 // the data is sent to esp-req/sensordata/<timestamp> resource on the cloud server
 void sendData(float temp, float airHumid, float soilHumid) {
   // Create a JSON payload with the temperature and humidity values
-    StaticJsonDocument<128> jsonPayload;
+    StaticJsonDocument<512> jsonPayload;
     jsonPayload["temp"] = temp;
     jsonPayload["air_humid"] = airHumid;
     jsonPayload["soil_humid"] = soilHumid;//here
@@ -816,7 +816,7 @@ void configWifi(bool config) {
       display.setCursor(0, 20);
       display.print("Offline");
       display.display();
-      delay(5000);
+      delay(2000);
       inWifiConfig = false;
       return;
     }
@@ -832,7 +832,7 @@ void configWifi(bool config) {
       display.setCursor(0, 20);
       display.println("Offline");
       display.display();
-      delay(5000);
+      delay(2000);
       inWifiConfig = false;
       return;
       
@@ -886,7 +886,6 @@ void configWifi(bool config) {
 
 void displaySoilData(){
   display.clearDisplay();
-  // display temperature
   display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
   display.setCursor(0,0);
@@ -896,7 +895,7 @@ void displaySoilData(){
   display.print(convertToSoilHumidity(analogRead(SOIL_SENSOR)));
   display.print(" %");
   
-  // display humidity
+  
   display.setTextSize(1);
   display.setCursor(0, 35);
   display.print("Last watering: ");
@@ -939,18 +938,7 @@ void displayTempHumidity(){
   display.display();
 }
 
-void displayLightIntensity(){
-  display.clearDisplay();
-  // display temperature
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("Light intensity: ");
-  display.setTextSize(2);
-  display.setCursor(0,10);
-  Serial.println(analogRead(LIGHT_SENSOR));
-  display.print(String(analogRead(LIGHT_SENSOR)));
-  display.display();
-}
+
 
 void displayMaple(){
   display.clearDisplay();
@@ -1102,7 +1090,7 @@ void pumpWater(){
   
   digitalWrite(PUMP_POWER,HIGH);
   displayPumping();
-  for(int i = 0; i<500; ++i){
+  for(int i = 0; i<1000; ++i){
   //for(;;){
     
     digitalWrite(STEP, HIGH);
@@ -1233,7 +1221,7 @@ void loop() {
 
      if (needsWater()) pumpWater();
      if (needsWater()) {
-       pumpCheckInterval = 5000;
+       pumpCheckInterval = 6000;
        watering = true;
      } else  {
        if(offlineMode){
@@ -1254,7 +1242,7 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     logData(); //to SDcard
-    //sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
+    sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
   }
   checkAirHumidity();
   
