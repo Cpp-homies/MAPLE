@@ -12,6 +12,8 @@ import datetime
 from datetime import timedelta
 from datetime import datetime
 import asyncio
+from werkzeug.utils import secure_filename
+import os
 
 # Define HOST and PORT
 HOST = '0.0.0.0'
@@ -690,5 +692,17 @@ api.add_resource(Authentication, "/auth/login", endpoint="login")
 def get_server_online_status():
     return {'status': 1}, 200
 
+@app.route('/upload-image', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        return "No file part", 400
+    file = request.files['file']
+    if file.filename == '':
+        return "No selected file", 400
+    if file:
+        filename = secure_filename(file.filename)
+        file.save(os.path.join("/images_", filename))
+        return 'File successfully uploaded', 201
+    
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
