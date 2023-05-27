@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, session, request
+from flask import Flask, jsonify, session, request, send_from_directory
 # from celery import Celery
 from flask_restful import Api, Resource, reqparse, abort, marshal_with, marshal, fields
 from flask_sqlalchemy import SQLAlchemy
@@ -714,6 +714,7 @@ api.add_resource(Authentication, "/auth/login", endpoint="login")
 def get_server_online_status():
     return {'status': 1}, 200
 
+# POST Request for uploading image to the server
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
     # if 'file' not in request.files:
@@ -727,6 +728,14 @@ def upload_image():
             os.makedirs(app.config['UPLOAD_FOLDER'])
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         return 'File successfully uploaded'
-    
+
+# GET Request for accessing images from the server
+@app.route('/images/<user_id>/<filename>', methods=['GET'])
+def get_image(user_id, filename):
+    try: 
+        return send_from_directory(os.path.join(app.config['UPLOAD_FOLDER'], user_id), filename)
+    except FileNotFoundError:
+        abort(404)
+
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
