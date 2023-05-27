@@ -735,7 +735,28 @@ def upload_image(user_id):
 @app.route('/images/<user_id>/<filename>', methods=['GET'])
 def get_image(user_id, filename):
     try: 
-        return send_from_directory(os.path.join(app.config['UPLOAD_FOLDER'], user_id), filename)
+        user_folder_path = os.path.join(app.config['UPLOAD_FOLDER'], user_id)
+    
+        # Check if the directory exists
+        if not os.path.exists(user_folder_path):
+            return jsonify({"error": "User not found"}), 404
+    
+        # Get the most recent image
+        if filename == 'latest':
+            # Get list of all files in user's directory
+            image_list = os.listdir(user_folder_path)
+
+            # Filter out non-image files if needed
+            image_list = [filename for filename in image_list if filename.endswith(('.png', '.jpg', '.jpeg'))]
+
+            # Sort the image list
+            image_list.sort()
+
+            lastest_image = image_list[-1]
+
+            return send_from_directory(user_folder_path, lastest_image)
+        
+        return send_from_directory(user_folder_path, filename)
     except FileNotFoundError:
         abort(404)
 
