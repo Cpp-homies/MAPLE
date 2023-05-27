@@ -2,6 +2,8 @@ import Chart from 'chart.js/auto';
 import 'chartjs-adapter-luxon';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { login_fetch } from './auth.js';
+import { startControl } from './controls.js';
+import { updatePhoto } from './photos.js';
 
 Chart.register(zoomPlugin);
 
@@ -19,6 +21,7 @@ const darkColor2 = cssVariables.getPropertyValue('--DarkColor2').trim();
 const darkColor2T = cssVariables.getPropertyValue('--DarkColor2T').trim();
 const highLightColor1 = cssVariables.getPropertyValue('--HighLightColor1').trim();
 const highLightColor2 = cssVariables.getPropertyValue('--HighLightColor2').trim();
+const highLightColor3 = cssVariables.getPropertyValue('--HighLightColor3').trim();
 
 
 let userId = localStorage.getItem('user_id');
@@ -58,9 +61,19 @@ const chartData = {
             pointRadius: 0,
         },
         {
-            label: 'Humidity',
+            label: 'Air Humidity',
             data: [],
             borderColor: highLightColor2,
+            borderWidth: 5,
+            fill: false,
+            tension: 0.4,
+            yAxisID: 'humidity',
+            pointRadius: 0,
+        },
+        {
+            label: 'Soil Humidity',
+            data: [],
+            borderColor: highLightColor3,
             borderWidth: 5,
             fill: false,
             tension: 0.4,
@@ -93,34 +106,44 @@ const chartConfig = {
                     },
                 },
                 grid: {
-                    color: darkColor1,
+                    color: lightColor1,
                 },
                 ticks: {
-                    color: lightColor2,
+                    color: darkColor1,
                 },
             },
             temperature: {
                 type: 'linear',
                 position: 'left',
-                suggestedMin: 0,
-                suggestedMax: 50,
+                suggestedMin: 15,
+                suggestedMax: 35,
                 grid: {
-                    color: darkColor1,
+                    color: lightColor2,
                 },
                 ticks: {
-                    color: lightColor2,
+                    color: darkColor1,
+                },
+                title: {
+                    display: true,
+                    text: 'Temperature (°C)',
+                    color: darkColor1,
                 },
             },
             humidity: {
                 type: 'linear',
                 position: 'right',
-                suggestedMin: 0,
-                suggestedMax: 100,
+                suggestedMin: 20,
+                suggestedMax: 80,
                 grid: {
-                    color: darkColor1,
+                    color: lightColor2,
                 },
                 ticks: {
-                    color: lightColor2,
+                    color: darkColor1,
+                },
+                title: {
+                    display: true,
+                    text: 'Humidity (%)',
+                    color: darkColor1,
                 },
             },
         },
@@ -157,10 +180,24 @@ const chartConfig = {
 
 const temperatureChart = new Chart(ctx, chartConfig);
 
-function updateTemperatureChart(timestamp, temperature, humidity) {
+function updateChart(timestamp, temperature, humidity, soilHumidity) {
     chartData.labels.push(timestamp);
     chartData.datasets[0].data.push(temperature);
     chartData.datasets[1].data.push(humidity);
+    chartData.datasets[2].data.push(soilHumidity);
+    chartConfig.options.plugins.zoom.limits.x.max = Date.now();
+    
+    console.log("before sort")
+    console.log(chartData.labels[0])
+
+    // Sort the data by timestamp
+    chartData.labels.sort((a, b) => {
+        return -(a - b);
+    });
+
+    console.log("after sort")
+    console.log(chartData.labels[0])
+
     temperatureChart.update();
 }
 
@@ -175,7 +212,6 @@ async function fetchdata() {
     await fetch(URL, { credentials: 'include' })
         .then(response => response.json())
         .then(data => {
-            console.log(data);
             try {
                 // reformat the timestamps from YYYY_MM_DD_HH_MM_SS to seconds
                 // first filter out data that is not in correct format
@@ -191,40 +227,43 @@ async function fetchdata() {
                     const hour = date[3];
                     const minute = date[4];
                     const second = date[5];
-                    const timestamp = new Date(Date.UTC(year, month, day, hour, minute, second));
+                    const timestamp = new Date(year, month, day, hour, minute, second);
                     data[index].timestamp = timestamp.getTime();
                 });
                 // sort the data by timestamp
                 data.sort((a, b) => {
                     return -(a.timestamp - b.timestamp);
                 });
+                console.log(data);
                 document.getElementById('air-humidity').innerHTML = Math.floor(data[0].air_humidity);
                 document.getElementById('air-temp').innerHTML = Math.floor(data[0].temperature);
                 document.getElementById('soil-humidity').innerHTML = Math.floor(data[0].soil_humidity);
-                // soil humidity
-                console.log(data[0].soil_humidity);
                 document.getElementById('timestamp').innerHTML = new Date(data[0].timestamp).toLocaleString();
 
 
                 // Update the chart with the most recent data
-                const lastTimestamp = chartData.labels[chartData.labels.length - 1];
+                let labelsSorted = chartData.labels;
+                // console.log("chartData.labels: ")
+                // console.log(chartData.labels)
+                labelsSorted.sort((a, b) => {
+                    return -(a - b)
+                });
+
+                const lastTimestamp = labelsSorted[0];
                 const currentTime = Date.now();
                 const firstTimestamp = currentTime - 2 * 24 * 60 * 60 * 1000; // 2 days ago
 
-                // If the chart is not empty, only add new data
-                if (lastTimestamp !== undefined) {
-                    const newData = data.filter(item => {
-                        return item.timestamp < lastTimestamp && item.timestamp > firstTimestamp;
-                    });
-                    newData.forEach((item) => {
-                        updateTemperatureChart(item.timestamp, item.temperature, item.air_humidity);
-                    });
-                } else {
-                    const recentData = data.filter(item => item.timestamp > firstTimestamp);
-                    recentData.forEach((item) => {
-                        updateTemperatureChart(item.timestamp, item.temperature, item.air_humidity);
-                    });
-                }
+
+                const recentData = data.filter(item => item.timestamp > firstTimestamp);
+                console.log("recent data: ")
+                console.log(recentData)
+                temperatureChart.data.labels = recentData.map(item => item.timestamp);
+                temperatureChart.data.datasets[0].data = recentData.map(item => item.temperature);
+                temperatureChart.data.datasets[1].data = recentData.map(item => item.air_humidity);
+                temperatureChart.data.datasets[2].data = recentData.map(item => item.soil_humidity);
+                
+                chartConfig.options.plugins.zoom.limits.x.max = Date.now();
+                temperatureChart.update();
 
             } catch (e) {
                 console.log(e);
@@ -235,6 +274,8 @@ async function fetchdata() {
 
 // Initiate the loading popup
 async function active_fetchdata() {
+    startControl();
+    updatePhoto();
     if (userId && token) {
         document.getElementById('loading-popup').style.display = 'flex';
         await fetchdata();
@@ -258,7 +299,7 @@ document.getElementById('requestData').addEventListener('click', () => {
 export function startInterval() {
     getLoginInfo();
     active_fetchdata();
-    interval = setInterval(fetchdata, 10000);
+    interval = setInterval(fetchdata, 20000);
 }
 
 // Stop interval
@@ -275,9 +316,9 @@ export function clearData() {
 }
 
 // Start interval if the user is logged in
-if (userId !== null) {
-    startInterval();
-}
+// if (userId !== null) {
+//     startInterval();
+// }
 
 // Register the service worker
 if ('serviceWorker' in navigator) {

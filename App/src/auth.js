@@ -96,7 +96,7 @@ async function register(event) {
 
         if (response.ok) {
             console.log("User registered successfully");
-            login_fetch(hashedUserId, hashedPassword); // Log in the user
+            login_fetch(hashedUserId, hashedPassword, userId); // Log in the user
             closeRegister(); // Close the register popup
             showSuccessPopup("Registered and logged in successfully"); // Show success popup
             showUserLogout(userId); // Show user ID and logout button
@@ -136,11 +136,9 @@ export async function login_fetch(userId, password, userId_text = null) {
         if (response.ok) {
             const data = await response.json();
             if (data.status === 1) {
-                console.log("User logged in successfully");
                 localStorage.setItem("user_id", userId); // Save the user_id in localStorage
                 localStorage.setItem("user_id_text", userId_text) // Save the user_id_text in localStorage
                 localStorage.setItem("token", password); // Save the token in localStorage
-                console.log(userId, password);
                 closeLogin(); // Close the login popup
                 showSuccessPopup("Logged in successfully"); // Show success popup
                 showUserLogout(userId_text); // Show user ID and logout button
@@ -165,7 +163,7 @@ function showUserLogout(userId) {
     const userLogoutContainer = document.getElementById("userLogoutContainer");
     const displayUserId = document.getElementById("displayUserId");
 
-    displayUserId.textContent = userId;
+    displayUserId.appendChild(document.createTextNode(userId));
     userLogoutContainer.style.display = "flex";
 
     // Hide register and login buttons
@@ -254,7 +252,7 @@ function closeLogin() {
 
 function openRegister() {
     if (document.getElementById("registerPopup").style.display === "inline-block") {
-        closeLogin();
+        closeRegister();
         return;
     } else {
         document.getElementById("registerPopup").style.display = "inline-block";
@@ -305,6 +303,8 @@ document.getElementById("login-submit").addEventListener('click', (event) => {
         login(event);
     }
 });
+
+
 document.getElementById("logout").addEventListener('click', (event) => {
     logout(event);
 });

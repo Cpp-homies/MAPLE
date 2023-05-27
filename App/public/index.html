@@ -56,7 +56,9 @@
 
               <!-- User ID and Logout buttons -->
               <div class="user-logout-container" id="userLogoutContainer" style="display: none;">
-                <span id="displayUserId"></span>
+                <div id="displayUserId" class="tooltip">
+                  <span class="tooltiptext">This is your username</span>
+                </div>
                 <button id="logout" class="icon-button">
                   logout
                 </button>
@@ -146,6 +148,114 @@
     <div class="main">
 
       <div class="content">
+
+        <div id="photoFeedBlock" class="block block-photoFeed"  style="display: none;" >
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Photo Feed:</h3>
+            </div>
+            <div class="photoFeedImageContainer">
+              <img id="latestImage" alt="Latest Image" height="600" width="800"/>
+            </div>
+          </div>
+        </div>
+        <div id="modal" class="modal">
+          <span class="close" id="closeModal">&times;</span>
+          <img class="modal-content" id="img01">
+          <div id="caption"></div>
+        </div>
+        
+
+        <br>
+
+        <div class="block block-small input-block">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Light Intensity:</h3>
+            </div>
+            <div>
+              <input type="range" min="0" max="100" value="" class="slider" id="lightIntensity">
+            </div>
+            <div class="value">
+              <span id="lightIntensityValue"></span>%
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="lightIntensityStatus"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="block block-small input-block">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Fan threshold:</h3>
+            </div>
+            <div>
+              <input type="range" min="0" max="100" value="" class="slider" id="fanThreshold">
+            </div>
+            <div class="value">
+              <span id="fanThresholdValue"></span>%
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="fanThresholdStatus"></span>
+            </div>
+          </div>
+        </div> 
+
+        <div class="block block-small input-block">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Pump threshold:</h3>
+            </div>
+            <div>
+              <input type="range" min="0" max="100" value="" class="slider" id="pumpThreshold">
+            </div>
+            <div class="value">
+              <span id="pumpThresholdValue"></span>%
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="pumpThresholdStatus"></span>
+            </div>
+          </div>
+        </div> 
+
+        <div class="block block-double input-block">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Light Start Time:</h3>
+            </div>
+            <div>
+              <input type="time" id="lightStartTime">
+            </div>
+            <div class="value">
+              <span id="lightStartTimeValue"></span>
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="lightStartTimeStatus"></span>
+            </div>
+          </div>
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Light Stop Time:</h3>
+            </div>
+            <div>
+              <input type="time" id="lightStopTime">
+            </div>
+            <div class="value">
+              <span id="lightStopTimeValue"></span>
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="lightStopTimeStatus"></span>
+            </div>
+          </div>
+        </div> 
+
+        <br>
 
         <div class="block block-small">
           <div class="block-content">
