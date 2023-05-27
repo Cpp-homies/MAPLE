@@ -21,7 +21,8 @@
 String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
 
 // Constants for photo sending
-String serverPath = "/upload-image";
+String hashedUsername = "e3b89e9d33f88e523083d8b4436adcc3726c89e97fd3179a2e102d765d1b16ed";
+String serverPath = "/upload-image/" + hashedUsername;
 String serverName = "cloud.kovanen.io";
 const int serverPort = 443;
 
@@ -224,9 +225,24 @@ void takeSavePhoto(){
   else {
     file.write(fb->buf, fb->len); // payload (image), payload length
     Serial.printf("Saved: %s\n", path.c_str());
+
+    // send the photo to the server
+    sendPhotoFromSDCard(path.c_str());
   }
   file.close();
   esp_camera_fb_return(fb); 
+}
+
+// Helper function that returns the file name from a given file path
+String filenameFromPath(String filePath) {
+  int lastSlashIndex = filePath.lastIndexOf('/');
+  String fileName = "";
+
+  if(lastSlashIndex != -1) {
+    fileName = filePath.substring(lastSlashIndex + 1);
+  }
+
+  return fileName;
 }
 
 String sendPhotoFromSDCard(const char* filePath) {
@@ -239,6 +255,7 @@ String sendPhotoFromSDCard(const char* filePath) {
     return "Failed to open file for reading";
   }
   
+  String filename = filenameFromPath(String(filePath));
 
   Serial.println("Connecting to server: " + serverName);
   client.setInsecure(); //skip certificate validation
@@ -246,7 +263,7 @@ String sendPhotoFromSDCard(const char* filePath) {
     Serial.println("Connection successful!");
     
     String serverPath = "/upload-image";
-    String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + String(filePath) + "\"\r\nContent-Type: image/jpeg\r\n\r\n";
+    String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\nContent-Type: image/jpeg\r\n\r\n";
     String tail = "\r\n--RandomNerdTutorials--\r\n";
 
     uint32_t imageLen = file.size();
