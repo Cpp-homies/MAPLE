@@ -13,6 +13,7 @@ from datetime import timedelta
 from datetime import datetime
 import asyncio
 from werkzeug.utils import secure_filename
+from PIL import Image
 import os
 
 # Define HOST and PORT
@@ -23,6 +24,11 @@ PORT = 8000
 class ESP_Req_Code(Enum):
     NO_REQ = 0
     LIVE_DATA = 1
+    SET_PUMP_THRSHLD = 2
+    SET_FAN_THRSHLD = 3
+    SET_PUMP_TRIGGR_PERCENT = 4
+    SET_LIGHT_STARTTIME = 5
+    SET_LIGHT_STOPTIME = 6
 
 
 app = Flask(__name__)
@@ -173,7 +179,7 @@ class Client():
         self.esp_reqs = [] # the list of request for the esp (device) of this client
         self.esp_req_served = [] # flag that indicates if the most recent request for this client has been served or not
     
-    # get the most recent request from the request list
+    # get the most recent request from the request list, return a default no new request JSON if there's no new request
     def pop_esp_req(self):
         if self.esp_reqs:
             return self.esp_reqs.pop()
@@ -296,7 +302,7 @@ class SensorData(Resource):
         try:
             # Convert the given range (from start time to end time) into two datetime objects
             start_time_str, end_time_str = timerange.split('-')
-            start_time = datetime.strptime(start_time_str, "%Y_%m_%d_%H_%M_%S")#here3
+            start_time = datetime.strptime(start_time_str, "%Y_%m_%d_%H_%M_%S")
             
             # Convert the shorthand 'now' into a time string of the current time if needed
             if end_time_str == 'now':
@@ -321,7 +327,7 @@ class SensorData(Resource):
 
             # Check if timestamp exists
             if not result_raw:
-                abort(404, message="Timestamp not found")#here4
+                abort(404, message="Timestamp not found")
             
             # Convert raw result to json
             result_json = jsonify([data.to_dict() for data in result_raw])
@@ -414,7 +420,7 @@ class SensorData(Resource):
             user_id = args['user_id']
             # print(args)
             # print(clients)
-            client = find_client(clients, user_id)#here
+            client = find_client(clients, user_id)
             if not client:
                 abort(404, message="User ID not found")
             else:
@@ -435,7 +441,7 @@ class SensorData(Resource):
                 return client.live_data, 201
             
             else:
-                timestamp_converted = str_to_datamodelTime(timestampstr)#here
+                timestamp_converted = str_to_datamodelTime(timestampstr)
 
                 # args = sensor_esp_put_args.parse_args()
                 # check whether the timestamp is taken or not
@@ -443,7 +449,7 @@ class SensorData(Resource):
                 # print("Received PUT request for timestamp " + time + " with arguments: " + "{temp:" + args['temp'] + ",humid:" \
                 #       + args['humid'] + '}')
                 if result:
-                    abort(409, message='Timestamp already exist')#here4
+                    abort(409, message='Timestamp already exist')
 
                 # create a SensorDataModel object and add it to the session
                 data = SensorDataModel(timestamp=timestamp_converted, user_id=user_id, temperature=float(args['temp']), air_humidity=float(args['air_humid']), soil_humidity=float(args['soil_humid']))
@@ -491,7 +497,7 @@ class SensorData(Resource):
             # Catch and handle ValueError exceptions
             abort(400, message="Invalid arguments")
     
-    @app.route('/datatable/<string:user_id>', methods=['GET'])#here
+    @app.route('/datatable/<string:user_id>', methods=['GET'])
     @cross_origin(supports_credentials=True)
     def get_data_table(user_id):
         #### NOTE #######
@@ -542,7 +548,7 @@ class SensorData(Resource):
     # GET method to get the next request for the ESP to execute
     @app.route('/request-to-esp/<string:user_id>/<string:password>', methods=['GET'])
     @cross_origin(supports_credentials=True)
-    def get_esp_request(user_id, password):
+    def get_esp_request(user_id, password):#here2
         # # Check if this data access is authorized (by loging in) or not
         # auth_user = get_ip_auth_user(request.remote_addr, authIP)
         
@@ -714,6 +720,9 @@ api.add_resource(Authentication, "/auth/login", endpoint="login")
 def get_server_online_status():
     return {'status': 1}, 200
 
+################
+# Image sending/receiving
+################
 # POST Request for uploading image to the server
 @app.route('/upload-image/<user_id>', methods=['POST'])
 def upload_image(user_id):
@@ -728,7 +737,24 @@ def upload_image(user_id):
         if not os.path.exists(user_folder_path):
             os.makedirs(user_folder_path)
         
-        file.save(os.path.join(user_folder_path, filename))
+        img_path = os.path.join(user_folder_path, filename)
+        file.save(img_path)
+
+        # Open an image file
+        with Image.open(img_path) as img:
+            # Resize it
+            img.thumbnail((800, 600))
+
+            # Change file extension to .webp
+            base_filename, file_extension = os.path.splitext(filename)
+            new_filename = base_filename + ".webp"
+
+            # Save as webp
+            new_img_path = os.path.join(user_folder_path, new_filename)
+            img.save(new_img_path, "WEBP")
+
+        # Remove the original file
+        os.remove(img_path)
         return 'File successfully uploaded'
 
 # GET Request for accessing images from the server
@@ -782,6 +808,38 @@ def get_imageList(user_id):
     image_dict = {i+1: filename for i, filename in enumerate(image_list)}
 
     return jsonify(image_dict)
+
+################
+################
+
+##################
+# Remote control #
+##################
+@app.route('/pumpThreshold/set', methods=['OPTIONS', 'PUT'])
+def set_pumpThreshold():
+    user_id = session.get('auth_user')#here
+
+    if not user_id:
+        abort(404, message="No authenticated user (check if you are logged-in)")
+
+    if request.method == 'OPTIONS':
+        # Respond to OPTIONS request
+        return "Received preflight request", 200
+
+    if request.method == 'PUT':
+        # Handle PUT request
+        data = request.get_json()
+        value = data[0]
+
+        client = find_client(clients, user_id)
+
+        if not client:
+            abort(404, message="Client not found")
+
+        client.add_esp_req({"type":ESP_Req_Code.SET_PUMP_THRSHLD.value, "value":value})
+
+        return "Request added successfully", 200
+
 
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
