@@ -739,5 +739,22 @@ def get_image(user_id, filename):
     except FileNotFoundError:
         abort(404)
 
+# GET Request that return a list of images in the user's directory
+@app.route('/image-list/<user_id>', methods=['GET'])
+def get_imageList(user_id):
+    user_folder_path = os.path.join(app.config['UPLOAD_FOLDER'], user_id)
+    
+    # Check if the directory exists
+    if not os.path.exists(user_folder_path):
+        return jsonify({"error": "User not found"}), 404
+
+    # Get list of all files in user's directory
+    image_list = os.listdir(user_folder_path)
+
+    # Filter out non-image files if needed
+    # image_list = [file for file in image_list if file.endswith(('.png', '.jpg', '.jpeg'))]
+
+    return jsonify(image_list)
+
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
