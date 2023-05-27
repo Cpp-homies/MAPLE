@@ -620,7 +620,7 @@ void initTime(String timezone){
 /////////////////////////////////////////////////////////////////
 //SDcard methods
 
-void logData(){
+void logData(float temp, float airHum, float soilHum){
   File file = SD.open(dataFile);
   if(!file){
     file = SD.open(dataFile, FILE_WRITE);
@@ -637,7 +637,7 @@ void logData(){
     if(!file){
         Serial.println("Failed to open file for data logging");
     }
-  String toWrite = String(bme.readTemperature())+","+ String(bme.readHumidity())+","+ String(analogRead(SOIL_SENSOR));
+  String toWrite = String(temp)+","+ String(airHum)+","+ String(soilHum);
   char buffer[toWrite.length()+1];
   toWrite.toCharArray(buffer, toWrite.length()+1);
   file.println(buffer);
@@ -1239,10 +1239,23 @@ void loop() {
      }
   }
   
+  //log and send data
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    logData(); //to SDcard
-    sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
+    float temp = 0;
+    float airHum = 0;
+    float soilHum = 0;
+    int count = 10;
+    for (int i = 0 ; i<count ; ++i){
+      temp += bme.readTemperature();
+      airHum += bme.readHumidity();
+      soilHum += convertToSoilHumidity(analogRead(SOIL_SENSOR));
+    }
+    temp = temp/(float)count;
+    airHum = airHum/(float)count;
+    soilHum = soilHum/(float)count;
+    logData(temp, airHum, soilHum); //to SDcard
+    sendData(temp, airHum, soilHum); //to cloud    
   }
   checkAirHumidity();
   
