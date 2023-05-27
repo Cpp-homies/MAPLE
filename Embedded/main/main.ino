@@ -1,5 +1,3 @@
-
-
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -1243,6 +1241,7 @@ void loop() {
     previousMillis = currentMillis;
     logData(); //to SDcard
     sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
+
   }
   checkAirHumidity();
   
