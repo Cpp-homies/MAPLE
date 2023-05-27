@@ -13,11 +13,22 @@
 #include "soc/rtc_cntl_reg.h"  // Disable brownout problems
 #include "driver/rtc_io.h"
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include "time.h"
 
 
 // REPLACE WITH YOUR TIMEZONE STRING: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
+
+// Constants for photo sending
+String hashedUsername = "e3b89e9d33f88e523083d8b4436adcc3726c89e97fd3179a2e102d765d1b16ed";
+String serverPath = "/upload-image/" + hashedUsername;
+String serverName = "cloud.kovanen.io";
+const int serverPort = 443;
+
+WiFiClientSecure client;
+
+
 
 // Pin definition for CAMERA_MODEL_AI_THINKER
 // Change pin definition if you're using another ESP32 camera module
@@ -44,6 +55,7 @@ camera_config_t config;
 long currentMillis = 0;
 long previousMillis = 0;
 long interval = 3600000;
+
 
 // Initializes the camera
 void configInitCamera(){
@@ -216,9 +228,96 @@ void takeSavePhoto(){
   else {
     file.write(fb->buf, fb->len); // payload (image), payload length
     Serial.printf("Saved: %s\n", path.c_str());
+
+    // send the photo to the server
+    sendPhotoFromSDCard(path.c_str());
   }
   file.close();
   esp_camera_fb_return(fb); 
+}
+
+// Helper function that returns the file name from a given file path
+String filenameFromPath(String filePath) {
+  int lastSlashIndex = filePath.lastIndexOf('/');
+  String fileName = "";
+
+  if(lastSlashIndex != -1) {
+    fileName = filePath.substring(lastSlashIndex + 1);
+  }
+
+  return fileName;
+}
+
+String sendPhotoFromSDCard(const char* filePath) {
+  String getAll;
+  String getBody;
+  
+  File file = SD_MMC.open(filePath);
+  if (!file) {
+    Serial.println("Failed to open file for reading");
+    return "Failed to open file for reading";
+  }
+  
+  String filename = filenameFromPath(String(filePath));
+
+  Serial.println("Connecting to server: " + serverName);
+  client.setInsecure(); //skip certificate validation
+  if (client.connect(serverName.c_str(), serverPort)) {
+    Serial.println("Connection successful!");
+    
+    String serverPath = "/upload-image";
+    String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\nContent-Type: image/jpeg\r\n\r\n";
+    String tail = "\r\n--RandomNerdTutorials--\r\n";
+
+    uint32_t imageLen = file.size();
+    uint32_t extraLen = head.length() + tail.length();
+    uint32_t totalLen = imageLen + extraLen;
+  
+    client.println("POST " + serverPath + " HTTP/1.1");
+    client.println("Host: " + serverName);
+    client.println("Content-Length: " + String(totalLen));
+    client.println("Content-Type: multipart/form-data; boundary=RandomNerdTutorials");
+    client.println();
+    client.print(head);
+  
+    uint8_t *fbBuf = new uint8_t[1024];
+    for (size_t n=0; n<imageLen; n=n+1024) {
+      file.read(fbBuf, min(1024, (int)(imageLen-n)));
+      client.write(fbBuf, min(1024, (int)(imageLen-n)));
+    }
+    client.print(tail);
+    
+    file.close();
+    free(fbBuf);
+    
+    int timoutTimer = 10000;
+    long startTimer = millis();
+    boolean state = false;
+    
+    while ((startTimer + timoutTimer) > millis()) {
+      Serial.print(".");
+      delay(100);      
+      while (client.available()) {
+        char c = client.read();
+        if (c == '\n') {
+          if (getAll.length()==0) { state=true; }
+          getAll = "";
+        }
+        else if (c != '\r') { getAll += String(c); }
+        if (state==true) { getBody += String(c); }
+        startTimer = millis();
+      }
+      if (getBody.length()>0) { break; }
+    }
+    Serial.println();
+    client.stop();
+    Serial.println(getBody);
+  }
+  else {
+    getBody = "Connection to " + serverName +  " failed.";
+    Serial.println(getBody);
+  }
+  return getBody;
 }
 
 bool connectWifi(String BSSID, String password) {

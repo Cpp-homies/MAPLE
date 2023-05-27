@@ -1,5 +1,3 @@
-
-
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -72,12 +70,12 @@ uint16_t analogDry = 2950;
 uint16_t lightCutOff = 90;
 uint16_t lightMax = 10;
 uint16_t pumpTriggerPercent = 30;
-int pumpStopPercent = 80;
+int pumpStopPercent = 85;
 bool watering = false;
 String pumpingTime = "N/A";
 uint8_t brightness;
 int lightPercentage = 100;
-int pumpSpeed = 1000;
+int pumpSpeed = 800;
 int fanSpeed = 240; //190-255
 int fanThreshold = 50;
 bool fanOn = false;
@@ -567,7 +565,7 @@ void click(Button2& btn) {
     screenMode = 31;
     pumpTriggerPercent = r.getPosition();
     r.resetPosition();
-    r.setUpperBound(50);
+    r.setUpperBound(100);
   } else if(screenMode == 4){
     lightPercentage = r.getPosition();
     r.resetPosition();
@@ -1256,6 +1254,7 @@ void loop() {
     soilHum = soilHum/(float)count;
     logData(temp, airHum, soilHum); //to SDcard
     sendData(temp, airHum, soilHum); //to cloud    
+
   }
   checkAirHumidity();
   
