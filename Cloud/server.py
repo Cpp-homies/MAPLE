@@ -752,9 +752,15 @@ def get_imageList(user_id):
     image_list = os.listdir(user_folder_path)
 
     # Filter out non-image files if needed
-    # image_list = [file for file in image_list if file.endswith(('.png', '.jpg', '.jpeg'))]
+    image_list = [filename for filename in image_list if filename.endswith(('.png', '.jpg', '.jpeg'))]
 
-    return jsonify(image_list)
+    # Sort the image list
+    image_list.sort()
+
+    # Create a dictionary where the keys are the indices and the values are the filenames
+    image_dict = {i+1: filename for i, filename in enumerate(image_list)}
+
+    return jsonify(image_dict)
 
 if __name__ == "__main__":
     app.run(host=HOST,port=PORT, threaded=True)
