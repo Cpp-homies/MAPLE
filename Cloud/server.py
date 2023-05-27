@@ -715,18 +715,20 @@ def get_server_online_status():
     return {'status': 1}, 200
 
 # POST Request for uploading image to the server
-@app.route('/upload-image', methods=['POST'])
-def upload_image():
-    # if 'file' not in request.files:
-    #     return "No file part", 400
+@app.route('/upload-image/<user_id>', methods=['POST'])
+def upload_image(user_id):
     file = request.files['file']
     if file.filename == '':
         return "No selected file", 400
     if file:
         filename = secure_filename(file.filename)
-        if not os.path.exists(app.config['UPLOAD_FOLDER']):
-            os.makedirs(app.config['UPLOAD_FOLDER'])
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        
+        user_folder_path = os.path.join(app.config['UPLOAD_FOLDER'], user_id)
+        
+        if not os.path.exists(user_folder_path):
+            os.makedirs(user_folder_path)
+        
+        file.save(os.path.join(user_folder_path, filename))
         return 'File successfully uploaded'
 
 # GET Request for accessing images from the server
