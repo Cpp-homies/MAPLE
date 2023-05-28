@@ -162,6 +162,41 @@ int getNewRequest(DynamicJsonDocument *requestArgs) {
     }
 }
 
+// function for updating the control parameter on the cloud server
+void updateCloudControlParameters(int lightPercentage, int fanThreshold, int pumpTriggerPercent, String lightStartTime, String lightStopTime) {
+  // Create a JSON payload with the control parameters
+  StaticJsonDocument<512> jsonPayload;
+  jsonPayload["lightIntensity"] = lightPercentage;
+  jsonPayload["fanThreshold"] = fanThreshold;
+  jsonPayload["pumpThreshold"] = pumpTriggerPercent;
+  jsonPayload["lightStartTime"] = lightStartTime;
+  jsonPayload["lightStopTime"] = lightStopTime;
+  jsonPayload["user_id"] = hashedUsername;
+  jsonPayload["password"] = hashedPassword;
+
+  // Serialize the JSON payload to a string
+  String payloadString;
+  serializeJson(jsonPayload, payloadString);
+
+  String address = BASE_URL + "/esp-control-pars-update";
+  HTTPClient http;
+  http.begin(address);
+
+  // Set the content type header to JSON
+  http.addHeader("Content-Type", "application/json");
+
+  // Send the PUT request with the JSON payload
+  int httpResponseCode = http.PUT(payloadString);
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println(response);
+  } else {
+    String response = http.getString();
+    Serial.print("Error sending request: ");
+    Serial.println(httpResponseCode);
+  }
+  http.end();
+}
 
 // a mini server that check for new data requests from the cloud
 void Listener( void * pvParameters ){
@@ -176,18 +211,27 @@ void Listener( void * pvParameters ){
     Serial.println("Cloud authentication failed for core 0");
   }
 
-  // unsigned long listenerPreviousMillis = 0;
+  unsigned long listenerPreviousMillis = 0;
+  const long controlParameters_updateInterval = 5000; // 5s
+  unsigned long controlParUpdatePreviousMillis = 0;
   // const long listeningInterval = 5000;
   // an infinite loop equivalent to the void loop() function on the main core
   for(;;){
-    // unsigned long currentMillis = millis();
+    unsigned long currentMillis = millis();
+
+    // update (sync) the control parameters on the server side periodically
+    if (currentMillis - controlParUpdatePreviousMillis >= controlParameters_updateInterval) {
+      controlParUpdatePreviousMillis = currentMillis;
+      updateCloudControlParameters(lightPercentage, fanThreshold, pumpTriggerPercent, lightStartTime, lightStopTime);
+    }
+
     // if (currentMillis - listenerPreviousMillis >= listeningInterval) {
       // listenerPreviousMillis = currentMillis;
       // JSON document for keeping request arguments
       // int *requestArgs = (int*) malloc(10 * sizeof(int));
       const size_t capacity = JSON_OBJECT_SIZE(1) + 20;
       DynamicJsonDocument requestArgs(capacity);
-
+    
       int httpResponseCode = getNewRequest(&requestArgs);
 
       if (httpResponseCode == -1) {
@@ -197,6 +241,8 @@ void Listener( void * pvParameters ){
       else {
         // get the request type
         int requestType = requestArgs["type"];
+        // the value that go with the request (if applicable)
+        int requestValue;
 
         
 
@@ -225,11 +271,76 @@ void Listener( void * pvParameters ){
             
             break;
           }
+          // SET Pump threshold
+          case 2: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received pump threshold SET request from server, with threshold ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            pumpTriggerPercent = requestValue;
+            
+            break;
+          }
+          // SET Fan threshold
+          case 3: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received fan threshold SET request from server, with threshold ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            fanThreshold = requestValue;
+            
+            break;
+          }
+          // SET Light intensity
+          case 4: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received light intensity SET request from server, with level ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            lightPercentage = requestValue;
+            
+            break;
+          }
+          // SET light start time
+          case 5: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received light start time SET request from server, with time ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            lightStartTime = requestValue;
+            
+            break;
+          }
+          // SET light stop time
+          case 6: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received light stop time SET request from server, with time ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            lightStopTime = requestValue;
+            
+            break;
+          }
           default:
           //
             Serial.print("Received unknown request from cloud server with type: ");
             Serial.println(requestType);
-          break;
+            break;
         }
       }
 
@@ -248,7 +359,7 @@ void sendData(float temp, float airHumid, float soilHumid) {
     StaticJsonDocument<512> jsonPayload;
     jsonPayload["temp"] = temp;
     jsonPayload["air_humid"] = airHumid;
-    jsonPayload["soil_humid"] = soilHumid;//here
+    jsonPayload["soil_humid"] = soilHumid;
     jsonPayload["user_id"] = hashedUsername;
     jsonPayload["password"] = hashedPassword;
 
