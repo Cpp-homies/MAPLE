@@ -162,6 +162,41 @@ int getNewRequest(DynamicJsonDocument *requestArgs) {
     }
 }
 
+// function for updating the control parameter on the cloud server
+void updateCloudControlParameters(int lightPercentage, int fanThreshold, int pumpTriggerPercent, String lightStartTime, String lightStopTime) {
+  // Create a JSON payload with the control parameters
+  StaticJsonDocument<512> jsonPayload;
+  jsonPayload["lightIntensity"] = lightPercentage;
+  jsonPayload["fanThreshold"] = fanThreshold;
+  jsonPayload["pumpThreshold"] = pumpTriggerPercent;
+  jsonPayload["lightStartTime"] = lightStartTime;
+  jsonPayload["lightStopTime"] = lightStopTime;
+  jsonPayload["user_id"] = hashedUsername;
+  jsonPayload["password"] = hashedPassword;
+
+  // Serialize the JSON payload to a string
+  String payloadString;
+  serializeJson(jsonPayload, payloadString);
+
+  String address = BASE_URL + "/esp-control-pars-update";
+  HTTPClient http;
+  http.begin(address);
+
+  // Set the content type header to JSON
+  http.addHeader("Content-Type", "application/json");
+
+  // Send the PUT request with the JSON payload
+  int httpResponseCode = http.PUT(payloadString);
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println(response);
+  } else {
+    String response = http.getString();
+    Serial.print("Error sending request: ");
+    Serial.println(httpResponseCode);
+  }
+  http.end();
+}
 
 // a mini server that check for new data requests from the cloud
 void Listener( void * pvParameters ){
@@ -176,18 +211,27 @@ void Listener( void * pvParameters ){
     Serial.println("Cloud authentication failed for core 0");
   }
 
-  // unsigned long listenerPreviousMillis = 0;
+  unsigned long listenerPreviousMillis = 0;
+  const long controlParameters_updateInterval = 5000; // 5s
+  unsigned long controlParUpdatePreviousMillis = 0;
   // const long listeningInterval = 5000;
   // an infinite loop equivalent to the void loop() function on the main core
   for(;;){
-    // unsigned long currentMillis = millis();
+    unsigned long currentMillis = millis();
+
+    // update (sync) the control parameters on the server side periodically
+    if (currentMillis - controlParUpdatePreviousMillis >= controlParameters_updateInterval) {
+      controlParUpdatePreviousMillis = currentMillis;
+      updateCloudControlParameters(lightPercentage, fanThreshold, pumpTriggerPercent, lightStartTime, lightStopTime);
+    }
+
     // if (currentMillis - listenerPreviousMillis >= listeningInterval) {
       // listenerPreviousMillis = currentMillis;
       // JSON document for keeping request arguments
       // int *requestArgs = (int*) malloc(10 * sizeof(int));
       const size_t capacity = JSON_OBJECT_SIZE(1) + 20;
       DynamicJsonDocument requestArgs(capacity);
-
+    
       int httpResponseCode = getNewRequest(&requestArgs);
 
       if (httpResponseCode == -1) {
