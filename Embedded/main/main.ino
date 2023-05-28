@@ -75,6 +75,8 @@ bool watering = false;
 String pumpingTime = "N/A";
 uint8_t brightness;
 int lightPercentage = 100;
+String lightStartTime = "08:00";
+String lightStopTime = "11:10";
 int pumpSpeed = 800;
 int fanSpeed = 240; //190-255
 int fanThreshold = 50;
@@ -441,6 +443,8 @@ void setup() {
   pinMode(DIR, OUTPUT);
 
   digitalWrite(PUMP_POWER, LOW);
+
+  adjustLights();
 
   stepper.setMaxSpeed(1000);
   //stepper.setAcceleration(50);
@@ -1048,6 +1052,7 @@ void displayFanOption(){
 
 void adjustLights(){
   
+
   int lightIntensity = analogRead(LIGHT_SENSOR);
   
   //Serial.println(lightIntensity);
@@ -1219,7 +1224,7 @@ void loop() {
 
      if (needsWater()) pumpWater();
      if (needsWater()) {
-       pumpCheckInterval = 6000;
+       pumpCheckInterval = 60000;
        watering = true;
      } else  {
        if(offlineMode){

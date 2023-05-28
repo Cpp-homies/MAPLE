@@ -54,7 +54,8 @@ camera_config_t config;
 
 long currentMillis = 0;
 long previousMillis = 0;
-long interval = 3600000;
+long interval = 1800000;
+//long interval = 10000;
 
 
 // Initializes the camera
@@ -228,11 +229,10 @@ void takeSavePhoto(){
   else {
     file.write(fb->buf, fb->len); // payload (image), payload length
     Serial.printf("Saved: %s\n", path.c_str());
-
-    // send the photo to the server
-    sendPhotoFromSDCard(path.c_str());
   }
   file.close();
+  // send the photo to the server
+  sendPhotoFromSDCard(path.c_str());
   esp_camera_fb_return(fb); 
 }
 
@@ -265,7 +265,7 @@ String sendPhotoFromSDCard(const char* filePath) {
   if (client.connect(serverName.c_str(), serverPort)) {
     Serial.println("Connection successful!");
     
-    String serverPath = "/upload-image";
+    //String serverPath = "/upload-image";
     String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\nContent-Type: image/jpeg\r\n\r\n";
     String tail = "\r\n--RandomNerdTutorials--\r\n";
 
