@@ -26,7 +26,7 @@ class ESP_Req_Code(Enum):
     LIVE_DATA = 1
     SET_PUMP_THRSHLD = 2
     SET_FAN_THRSHLD = 3
-    SET_PUMP_TRIGGR_PERCENT = 4
+    SET_LIGHT_INTENSITY = 4
     SET_LIGHT_STARTTIME = 5
     SET_LIGHT_STOPTIME = 6
 
@@ -773,7 +773,7 @@ def get_image(user_id, filename):
             image_list = os.listdir(user_folder_path)
 
             # Filter out non-image files if needed
-            image_list = [filename for filename in image_list if filename.endswith(('.png', '.jpg', '.jpeg'))]
+            image_list = [filename for filename in image_list if filename.endswith(('.png', '.jpg', '.jpeg', 'webp'))]
 
             # Sort the image list
             image_list.sort()
@@ -799,7 +799,7 @@ def get_imageList(user_id):
     image_list = os.listdir(user_folder_path)
 
     # Filter out non-image files if needed
-    image_list = [filename for filename in image_list if filename.endswith(('.png', '.jpg', '.jpeg'))]
+    image_list = [filename for filename in image_list if filename.endswith(('.png', '.jpg', '.jpeg', '.webp'))]
 
     # Sort the image list
     image_list.sort()
@@ -815,6 +815,7 @@ def get_imageList(user_id):
 ##################
 # Remote control #
 ##################
+@cross_origin(supports_credentials=True)
 @app.route('/pumpThreshold/set', methods=['OPTIONS', 'PUT'])
 def set_pumpThreshold():
     user_id = session.get('auth_user')#here
@@ -830,13 +831,121 @@ def set_pumpThreshold():
         # Handle PUT request
         data = request.get_json()
         value = data[0]
-
+        print(value)
         client = find_client(clients, user_id)
 
         if not client:
             abort(404, message="Client not found")
 
         client.add_esp_req({"type":ESP_Req_Code.SET_PUMP_THRSHLD.value, "value":value})
+
+        return "Request added successfully", 200
+
+
+@cross_origin(supports_credentials=True)
+@app.route('/fanThreshold/set', methods=['OPTIONS', 'PUT'])
+def set_fanThreshold():
+    user_id = session.get('auth_user')#here
+
+    if not user_id:
+        abort(404, message="No authenticated user (check if you are logged-in)")
+
+    if request.method == 'OPTIONS':
+        # Respond to OPTIONS request
+        return "Received preflight request", 200
+
+    if request.method == 'PUT':
+        # Handle PUT request
+        data = request.get_json()
+        value = data[0]
+        print(value)
+        client = find_client(clients, user_id)
+
+        if not client:
+            abort(404, message="Client not found")
+
+        client.add_esp_req({"type":ESP_Req_Code.SET_FAN_THRSHLD.value, "value":value})
+
+        return "Request added successfully", 200
+    
+
+@cross_origin(supports_credentials=True)
+@app.route('/lightIntensity/set', methods=['OPTIONS', 'PUT'])
+def set_lightIntensity():
+    user_id = session.get('auth_user')#here
+
+    if not user_id:
+        abort(404, message="No authenticated user (check if you are logged-in)")
+
+    if request.method == 'OPTIONS':
+        # Respond to OPTIONS request
+        return "Received preflight request", 200
+
+    if request.method == 'PUT':
+        # Handle PUT request
+        data = request.get_json()
+        value = data[0]
+        print(value)
+        client = find_client(clients, user_id)
+
+        if not client:
+            abort(404, message="Client not found")
+
+        client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_INTENSITY.value, "value":value})
+
+        return "Request added successfully", 200
+    
+
+@cross_origin(supports_credentials=True)
+@app.route('/lightStartTime/set', methods=['OPTIONS', 'PUT'])
+def set_lightStartTime():
+    user_id = session.get('auth_user')#here
+
+    # if not user_id:
+    #     abort(404, message="No authenticated user (check if you are logged-in)")
+
+    if request.method == 'OPTIONS':
+        # Respond to OPTIONS request
+        return "Received preflight request", 200
+
+    if request.method == 'PUT':
+        # Handle PUT request
+        data = request.get_json()
+        value = data[0]
+        print(value)
+        client = find_client(clients, user_id)
+
+        if not client:
+            abort(404, message="Client not found")
+
+        client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_STARTTIME.value, "value":value})
+
+        return "Request added successfully", 200
+    
+
+@cross_origin(supports_credentials=True)
+@app.route('/lightStopTime/set', methods=['OPTIONS', 'PUT'])
+def set_lightStopTime():
+    user_id = session.get('auth_user')#here
+
+    # if not user_id:
+    #     abort(404, message="No authenticated user (check if you are logged-in)")
+
+    if request.method == 'OPTIONS':
+        # Respond to OPTIONS request
+        return "Received preflight request", 200
+
+    if request.method == 'PUT':
+        # Handle PUT request
+        data = request.get_json()
+        value = data[0]
+        print(value)
+        client = find_client(clients, user_id)
+
+        if not client:
+            abort(404, message="Client not found")
+
+        client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_STOPTIME.value, "value":value})
 
         return "Request added successfully", 200
 
