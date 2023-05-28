@@ -197,6 +197,8 @@ void Listener( void * pvParameters ){
       else {
         // get the request type
         int requestType = requestArgs["type"];
+        // the value that go with the request (if applicable)
+        int requestValue;
 
         
 
@@ -225,11 +227,76 @@ void Listener( void * pvParameters ){
             
             break;
           }
+          // SET Pump threshold
+          case 2: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received pump threshold SET request from server, with threshold ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            pumpTriggerPercent = requestValue;
+            
+            break;
+          }
+          // SET Fan threshold
+          case 3: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received fan threshold SET request from server, with threshold ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            fanThreshold = requestValue;
+            
+            break;
+          }
+          // SET Light intensity
+          case 4: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received light intensity SET request from server, with level ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            lightPercentage = requestValue;
+            
+            break;
+          }
+          // SET light start time
+          case 5: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received light start time SET request from server, with time ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            lightStartTime = requestValue;
+            
+            break;
+          }
+          // SET light stop time
+          case 6: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received light stop time SET request from server, with time ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            lightStopTime = requestValue;
+            
+            break;
+          }
           default:
           //
             Serial.print("Received unknown request from cloud server with type: ");
             Serial.println(requestType);
-          break;
+            break;
         }
       }
 
@@ -248,7 +315,7 @@ void sendData(float temp, float airHumid, float soilHumid) {
     StaticJsonDocument<512> jsonPayload;
     jsonPayload["temp"] = temp;
     jsonPayload["air_humid"] = airHumid;
-    jsonPayload["soil_humid"] = soilHumid;//here
+    jsonPayload["soil_humid"] = soilHumid;
     jsonPayload["user_id"] = hashedUsername;
     jsonPayload["password"] = hashedPassword;
 
