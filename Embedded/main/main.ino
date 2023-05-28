@@ -443,6 +443,8 @@ void setup() {
   pinMode(DIR, OUTPUT);
 
   digitalWrite(PUMP_POWER, LOW);
+  ledcAttachPin(LIGHTS, pwmChannel_0);
+  ledcAttachPin(FAN, pwmChannel_2);
 
   adjustLights();
 
@@ -456,8 +458,7 @@ void setup() {
   ledcSetup(pwmChannel_0, freq, pwmResolution);
   ledcSetup(pwmChannel_2, freq, pwmResolution);
   // attach the channel to the GPIO to be controlled
-  ledcAttachPin(LIGHTS, pwmChannel_0);
-  ledcAttachPin(FAN, pwmChannel_2);
+  
   
   display.setTextColor(WHITE);
   
