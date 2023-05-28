@@ -141,6 +141,16 @@ sensor_update_args.add_argument('temp', type=str, help='Temperature not specifie
 sensor_update_args.add_argument('air_humid', type=str, help='Humidity not specified', required=False)
 sensor_update_args.add_argument('soil_humid', type=str, help='Humidity not specified', required=False)
 
+# argument parser for ESP's control parameter update
+esp_controlParUpdate_args = reqparse.RequestParser()
+esp_controlParUpdate_args.add_argument('user_id', type=str, help='User ID not specified', required=True)
+esp_controlParUpdate_args.add_argument('password', type=str, help='Password not specified', required=True)
+esp_controlParUpdate_args.add_argument('lightIntensity', type=int, help='Light percentage not specified', required=True)
+esp_controlParUpdate_args.add_argument('fanThreshold', type=int, help='Fan threshold not specified', required=True)
+esp_controlParUpdate_args.add_argument('pumpThreshold', type=int, help='Pump trigger percent not specified', required=True)
+esp_controlParUpdate_args.add_argument('lightStartTime', type=str, help='Light start time not specified', required=True)
+esp_controlParUpdate_args.add_argument('lightStopTime', type=str, help='Light stop time not specified', required=True)
+
 
 
 # fields for serialization
@@ -178,7 +188,28 @@ class Client():
         self.live_data = {} # the most recently updated live data for this client
         self.esp_reqs = [] # the list of request for the esp (device) of this client
         self.esp_req_served = [] # flag that indicates if the most recent request for this client has been served or not
+
+        # device's control parameters
+        self.pumpThreshold = 0
+        self.fanThreshold = 0
+        self.lightIntensity = 0
+        self.lightStartTime = '00:00'
+        self.lightStopTime = '00:00'
     
+    # set the device's control parameters
+    def set_esp_control_pars(self, pumpThreshold, fanThreshold, lightIntensity, lightStartTime, lightStopTime):
+        self.pumpThreshold = pumpThreshold
+        self.fanThreshold = fanThreshold
+        self.lightIntensity = lightIntensity
+        self.lightStartTime = lightStartTime
+        self.lightStopTime = lightStopTime
+
+    # string representation of the client's control parameters
+    def controlPars_string(self):
+        return f"Control parameters: \npump threshold={self.pumpThreshold}\nfan threshold={self.fanThreshold}\nlight intensity={self.lightIntensity}\nlight start time={self.lightStartTime}\nlight stop time={self.lightStopTime}"
+
+
+
     # get the most recent request from the request list, return a default no new request JSON if there's no new request
     def pop_esp_req(self):
         if self.esp_reqs:
@@ -548,7 +579,7 @@ class SensorData(Resource):
     # GET method to get the next request for the ESP to execute
     @app.route('/request-to-esp/<string:user_id>/<string:password>', methods=['GET'])
     @cross_origin(supports_credentials=True)
-    def get_esp_request(user_id, password):#here2
+    def get_esp_request(user_id, password):
         # # Check if this data access is authorized (by loging in) or not
         # auth_user = get_ip_auth_user(request.remote_addr, authIP)
         
@@ -815,10 +846,147 @@ def get_imageList(user_id):
 ##################
 # Remote control #
 ##################
+## GET methods ##
+# @cross_origin(supports_credentials=True)
+# @app.route('/pumpThreshold/get', methods=['OPTIONS', 'GET'])
+# def set_pumpThreshold():
+#     user_id = session.get('auth_user')#here
+
+#     if not user_id:
+#         abort(404, message="No authenticated user (check if you are logged-in)")
+
+#     if request.method == 'OPTIONS':
+#         # Respond to OPTIONS request
+#         return "Received preflight request", 200
+
+#     if request.method == 'PUT':
+#         # Handle PUT request
+#         data = request.get_json()
+#         value = data[0]
+#         print(value)
+#         client = find_client(clients, user_id)
+
+#         if not client:
+#             abort(404, message="Client not found")
+
+#         client.add_esp_req({"type":ESP_Req_Code.SET_PUMP_THRSHLD.value, "value":value})
+
+#         return "Request added successfully", 200
+
+
+# @cross_origin(supports_credentials=True)
+# @app.route('/fanThreshold/set', methods=['OPTIONS', 'PUT'])
+# def set_fanThreshold():
+#     user_id = session.get('auth_user')
+
+#     if not user_id:
+#         abort(404, message="No authenticated user (check if you are logged-in)")
+
+#     if request.method == 'OPTIONS':
+#         # Respond to OPTIONS request
+#         return "Received preflight request", 200
+
+#     if request.method == 'PUT':
+#         # Handle PUT request
+#         data = request.get_json()
+#         value = data[0]
+#         print(value)
+#         client = find_client(clients, user_id)
+
+#         if not client:
+#             abort(404, message="Client not found")
+
+#         client.add_esp_req({"type":ESP_Req_Code.SET_FAN_THRSHLD.value, "value":value})
+
+#         return "Request added successfully", 200
+    
+
+# @cross_origin(supports_credentials=True)
+# @app.route('/lightIntensity/set', methods=['OPTIONS', 'PUT'])
+# def set_lightIntensity():
+#     user_id = session.get('auth_user')
+
+#     if not user_id:
+#         abort(404, message="No authenticated user (check if you are logged-in)")
+
+#     if request.method == 'OPTIONS':
+#         # Respond to OPTIONS request
+#         return "Received preflight request", 200
+
+#     if request.method == 'PUT':
+#         # Handle PUT request
+#         data = request.get_json()
+#         value = data[0]
+#         print(value)
+#         client = find_client(clients, user_id)
+
+#         if not client:
+#             abort(404, message="Client not found")
+
+#         client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_INTENSITY.value, "value":value})
+
+#         return "Request added successfully", 200
+    
+
+# @cross_origin(supports_credentials=True)
+# @app.route('/lightStartTime/set', methods=['OPTIONS', 'PUT'])
+# def set_lightStartTime():
+#     user_id = session.get('auth_user')
+
+#     # if not user_id:
+#     #     abort(404, message="No authenticated user (check if you are logged-in)")
+
+#     if request.method == 'OPTIONS':
+#         # Respond to OPTIONS request
+#         return "Received preflight request", 200
+
+#     if request.method == 'PUT':
+#         # Handle PUT request
+#         data = request.get_json()
+#         value = data[0]
+#         print(value)
+#         client = find_client(clients, user_id)
+
+#         if not client:
+#             abort(404, message="Client not found")
+
+#         client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_STARTTIME.value, "value":value})
+
+#         return "Request added successfully", 200
+    
+
+# @cross_origin(supports_credentials=True)
+# @app.route('/lightStopTime/set', methods=['OPTIONS', 'PUT'])
+# def set_lightStopTime():
+#     user_id = session.get('auth_user')
+
+#     # if not user_id:
+#     #     abort(404, message="No authenticated user (check if you are logged-in)")
+
+#     if request.method == 'OPTIONS':
+#         # Respond to OPTIONS request
+#         return "Received preflight request", 200
+
+#     if request.method == 'PUT':
+#         # Handle PUT request
+#         data = request.get_json()
+#         value = data[0]
+#         print(value)
+#         client = find_client(clients, user_id)
+
+#         if not client:
+#             abort(404, message="Client not found")
+
+#         client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_STOPTIME.value, "value":value})
+
+#         return "Request added successfully", 200
+    
+
+## SET methods ##
 @cross_origin(supports_credentials=True)
 @app.route('/pumpThreshold/set', methods=['OPTIONS', 'PUT'])
 def set_pumpThreshold():
-    user_id = session.get('auth_user')#here
+    user_id = session.get('auth_user')
 
     if not user_id:
         abort(404, message="No authenticated user (check if you are logged-in)")
@@ -845,7 +1013,7 @@ def set_pumpThreshold():
 @cross_origin(supports_credentials=True)
 @app.route('/fanThreshold/set', methods=['OPTIONS', 'PUT'])
 def set_fanThreshold():
-    user_id = session.get('auth_user')#here
+    user_id = session.get('auth_user')
 
     if not user_id:
         abort(404, message="No authenticated user (check if you are logged-in)")
@@ -872,7 +1040,7 @@ def set_fanThreshold():
 @cross_origin(supports_credentials=True)
 @app.route('/lightIntensity/set', methods=['OPTIONS', 'PUT'])
 def set_lightIntensity():
-    user_id = session.get('auth_user')#here
+    user_id = session.get('auth_user')
 
     if not user_id:
         abort(404, message="No authenticated user (check if you are logged-in)")
@@ -899,7 +1067,7 @@ def set_lightIntensity():
 @cross_origin(supports_credentials=True)
 @app.route('/lightStartTime/set', methods=['OPTIONS', 'PUT'])
 def set_lightStartTime():
-    user_id = session.get('auth_user')#here
+    user_id = session.get('auth_user')
 
     # if not user_id:
     #     abort(404, message="No authenticated user (check if you are logged-in)")
@@ -926,7 +1094,7 @@ def set_lightStartTime():
 @cross_origin(supports_credentials=True)
 @app.route('/lightStopTime/set', methods=['OPTIONS', 'PUT'])
 def set_lightStopTime():
-    user_id = session.get('auth_user')#here
+    user_id = session.get('auth_user')
 
     # if not user_id:
     #     abort(404, message="No authenticated user (check if you are logged-in)")
@@ -948,6 +1116,40 @@ def set_lightStopTime():
         client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_STOPTIME.value, "value":value})
 
         return "Request added successfully", 200
+
+
+# Used by the ESP to update the control parameters stored on the server
+# With the up-to-date ones on the ESP
+@app.route('/esp-control-pars-update', methods=['PUT'])
+@cross_origin(supports_credentials=True)
+def esp_control_par_update():
+    try:
+        args = esp_controlParUpdate_args.parse_args()
+        user_id = args['user_id']
+        client = find_client(clients, user_id)
+        if not client:
+            abort(404, message="User ID not found")
+        else:
+            if client.password != args['password']:
+                return {'message': 'Unauthorized access'}, 401
+            
+        # Set the control parameters using the set_esp_control_pars method
+        client.set_esp_control_pars(
+            pumpThreshold=float(args['pumpThreshold']),
+            fanThreshold=float(args['fanThreshold']),
+            lightIntensity=float(args['lightIntensity']),
+            lightStartTime=args['lightStartTime'],
+            lightStopTime=args['lightStopTime']
+        )
+        #here
+        # print(client.controlPars_string())
+
+        return "Server's control parameters updated successfully", 201
+        
+    except ValueError as e:
+        # Catch and handle ValueError exceptions
+        abort(400, message="Invalid arguments")
+
 
 
 if __name__ == "__main__":
