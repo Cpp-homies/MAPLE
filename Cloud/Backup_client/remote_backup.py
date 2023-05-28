@@ -5,10 +5,10 @@ import datetime
 import time
 from google.cloud import storage # pip install google-cloud-storage
 
-BACKUP_INTERVAL = 0.016  # The backup interval in hours
+BACKUP_INTERVAL = 12  # The backup interval in hours
 
 STORAGE_CLASSES = ('STANDARD', 'NEARLINE', 'COLDLINE', 'ARCHIVE')
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'Keys/sunlit-vortex-383512-87d7f5a8052e.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'Keys/sunlit-vortex-383512-6c75cbbbdd32.json'
 
 class GCStorage:
     def __init__(self, storage_client):
