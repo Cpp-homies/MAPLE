@@ -1003,7 +1003,7 @@ def set_pumpThreshold():
 
         client.add_esp_req({"type":ESP_Req_Code.SET_PUMP_THRSHLD.value, "value":value})
 
-        return "Request added successfully", 200
+        return {'message':"Request added successfully"}, 200
 
 
 @app.route('/fanThreshold/set', methods=['OPTIONS', 'PUT'])
@@ -1030,7 +1030,7 @@ def set_fanThreshold():
 
         client.add_esp_req({"type":ESP_Req_Code.SET_FAN_THRSHLD.value, "value":value})
 
-        return "Request added successfully", 200
+        return {'message':"Request added successfully"}, 200
     
 
 @app.route('/lightIntensity/set', methods=['OPTIONS', 'PUT'])
@@ -1057,7 +1057,7 @@ def set_lightIntensity():
 
         client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_INTENSITY.value, "value":value})
 
-        return "Request added successfully", 200
+        return {'message':"Request added successfully"}, 200
     
 
 @app.route('/lightStartTime/set', methods=['OPTIONS', 'PUT'])
@@ -1084,7 +1084,7 @@ def set_lightStartTime():
 
         client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_STARTTIME.value, "value":value})
 
-        return "Request added successfully", 200
+        return {'message':"Request added successfully"}, 200
     
 
 @app.route('/lightStopTime/set', methods=['OPTIONS', 'PUT'])
@@ -1111,7 +1111,7 @@ def set_lightStopTime():
 
         client.add_esp_req({"type":ESP_Req_Code.SET_LIGHT_STOPTIME.value, "value":value})
 
-        return "Request added successfully", 200
+        return {'message':"Request added successfully"}, 200
 
 
 # Used by the ESP to update the control parameters stored on the server
