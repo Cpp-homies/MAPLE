@@ -15,6 +15,16 @@ import asyncio
 from werkzeug.utils import secure_filename
 from PIL import Image
 import os
+import logging
+
+# Set up logging to a file and console
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s: %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    handlers=[
+                        logging.FileHandler('flask.log'),
+                        logging.StreamHandler()
+                    ])
 
 # Define HOST and PORT
 HOST = '0.0.0.0'
@@ -38,7 +48,7 @@ SESSION_TYPE = 'filesystem'
 app.secret_key = "secret"
 app.config.from_object(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
-app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=False)
+app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=True)
 app.config['PERMANENT_SESSION_LIFETIME'] =  timedelta(minutes=59)
 app.config['UPLOAD_FOLDER'] = 'images_'
 
@@ -847,8 +857,8 @@ def get_imageList(user_id):
 # Remote control #
 ##################
 ## GET methods ##
-@cross_origin(supports_credentials=True)
 @app.route('/pumpThreshold/get', methods=['OPTIONS', 'GET'])
+@cross_origin(supports_credentials=True)
 def get_pumpThreshold():
     user_id = session.get('auth_user')
 
@@ -871,9 +881,8 @@ def get_pumpThreshold():
         return jsonify(pumpThreshold), 200
 
 
-
-@cross_origin(supports_credentials=True)
 @app.route('/fanThreshold/get', methods=['OPTIONS', 'GET'])
+@cross_origin(supports_credentials=True)
 def get_fanThreshold():
     user_id = session.get('auth_user')
 
@@ -896,8 +905,8 @@ def get_fanThreshold():
         return jsonify(fanThreshold), 200
 
 
-@cross_origin(supports_credentials=True)
 @app.route('/lightIntensity/get', methods=['OPTIONS', 'GET'])
+@cross_origin(supports_credentials=True)
 def get_lightIntensity():
     user_id = session.get('auth_user')
 
@@ -920,8 +929,8 @@ def get_lightIntensity():
         return jsonify(lightIntensity), 200
 
 
-@cross_origin(supports_credentials=True)
 @app.route('/lightStartTime/get', methods=['OPTIONS', 'GET'])
+@cross_origin(supports_credentials=True)
 def get_lightStartTime():
     user_id = session.get('auth_user')
 
@@ -944,8 +953,8 @@ def get_lightStartTime():
         return jsonify(lightStartTime), 200
 
 
-@cross_origin(supports_credentials=True)
 @app.route('/lightStopTime/get', methods=['OPTIONS', 'GET'])
+@cross_origin(supports_credentials=True)
 def get_lightStopTime():
     user_id = session.get('auth_user')
 
@@ -970,8 +979,8 @@ def get_lightStopTime():
     
 
 ## SET methods ##
-@cross_origin(supports_credentials=True)
 @app.route('/pumpThreshold/set', methods=['OPTIONS', 'PUT'])
+@cross_origin(supports_credentials=True)
 def set_pumpThreshold():
     user_id = session.get('auth_user')
 
@@ -985,7 +994,7 @@ def set_pumpThreshold():
     if request.method == 'PUT':
         # Handle PUT request
         data = request.get_json()
-        value = data[0]
+        value = data['value']
         print(value)
         client = find_client(clients, user_id)
 
@@ -997,8 +1006,8 @@ def set_pumpThreshold():
         return "Request added successfully", 200
 
 
-@cross_origin(supports_credentials=True)
 @app.route('/fanThreshold/set', methods=['OPTIONS', 'PUT'])
+@cross_origin(supports_credentials=True)
 def set_fanThreshold():
     user_id = session.get('auth_user')
 
@@ -1012,7 +1021,7 @@ def set_fanThreshold():
     if request.method == 'PUT':
         # Handle PUT request
         data = request.get_json()
-        value = data[0]
+        value = data['value']
         print(value)
         client = find_client(clients, user_id)
 
@@ -1024,8 +1033,8 @@ def set_fanThreshold():
         return "Request added successfully", 200
     
 
-@cross_origin(supports_credentials=True)
 @app.route('/lightIntensity/set', methods=['OPTIONS', 'PUT'])
+@cross_origin(supports_credentials=True)
 def set_lightIntensity():
     user_id = session.get('auth_user')
 
@@ -1039,7 +1048,7 @@ def set_lightIntensity():
     if request.method == 'PUT':
         # Handle PUT request
         data = request.get_json()
-        value = data[0]
+        value = data['value']
         print(value)
         client = find_client(clients, user_id)
 
@@ -1051,8 +1060,8 @@ def set_lightIntensity():
         return "Request added successfully", 200
     
 
-@cross_origin(supports_credentials=True)
 @app.route('/lightStartTime/set', methods=['OPTIONS', 'PUT'])
+@cross_origin(supports_credentials=True)
 def set_lightStartTime():
     user_id = session.get('auth_user')
 
@@ -1066,7 +1075,7 @@ def set_lightStartTime():
     if request.method == 'PUT':
         # Handle PUT request
         data = request.get_json()
-        value = data[0]
+        value = data['value']
         print(value)
         client = find_client(clients, user_id)
 
@@ -1078,13 +1087,13 @@ def set_lightStartTime():
         return "Request added successfully", 200
     
 
-@cross_origin(supports_credentials=True)
 @app.route('/lightStopTime/set', methods=['OPTIONS', 'PUT'])
+@cross_origin(supports_credentials=True)
 def set_lightStopTime():
     user_id = session.get('auth_user')
 
-    # if not user_id:
-    #     abort(404, message="No authenticated user (check if you are logged-in)")
+    if not user_id:
+        abort(404, message="No authenticated user (check if you are logged-in)")
 
     if request.method == 'OPTIONS':
         # Respond to OPTIONS request
@@ -1093,7 +1102,7 @@ def set_lightStopTime():
     if request.method == 'PUT':
         # Handle PUT request
         data = request.get_json()
-        value = data[0]
+        value = data['value']
         print(value)
         client = find_client(clients, user_id)
 
