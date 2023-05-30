@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,900;1,900&display=swap"
+      rel="stylesheet">
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,700,0,0" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/webp" href="media/maple-logo-dalle-generated-192.webp">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="media/maple-logo-dalle-generated-512.png">
+    <meta name="theme-color" content="#74b86b">
+    <title>MAPLE: Modular Automated Plant Life Enclosure</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="header-text">
+        <h1>MAPLE:</h1>
+        <h2>Modular Automated Plant Life Enclosure</h2>
+
+        <div class="custom-hr" id="custom-hr-header">
+          <div class="custom-hr-middle">
+            <div class="custom-hr-dot"></div>
+            <div class="custom-hr-dot"></div>
+          </div>
+          <div class="custom-hr-line"></div>
+          <div class="custom-hr-middle">
+            <div class="custom-hr-dot"></div>
+            <div class="custom-hr-dot"></div>
+          </div>
+          <div class="custom-hr-line"></div>
+          <div class="custom-hr-middle">
+            <div class="custom-hr-dot"></div>
+            <div class="custom-hr-dot"></div>
+          </div>
+        </div>
+
+        <div class="header-buttons">
+          <div class="flex" style="float: left;">
+            <div class="login-container">
+
+              <button id="openRegisterPopup" class="icon-button" disabled>
+                register
+              </button>
+              <button id="openLoginPopup" class="icon-button" disabled>
+                login
+              </button>
+
+              <!-- User ID and Logout buttons -->
+              <div class="user-logout-container" id="userLogoutContainer" style="display: none;">
+                <div id="displayUserId" class="tooltip">
+                  <span class="tooltiptext">This is your username</span>
+                </div>
+                <button id="logout" class="icon-button">
+                  logout
+                </button>
+              </div>
+
+
+              <!-- Register Popup -->
+              <div class="form-popup" id="registerPopup">
+                <form class="form-container">
+                  <div class="block-content">
+                    <h1>Register</h1>
+                    <br>
+
+                    <label for="register-username"><b>Username</b></label>
+                    <input type="text" placeholder="Enter Username" name="register-username" required>
+
+                    <label for="register-psw"><b>Password</b></label>
+                    <input type="password" placeholder="Enter Password" name="register-psw" required>
+
+                    <button type="button" id="register-submit" class="btn">Register</button>
+                    <button type="button" id="closeRegisterPopup" class="btn cancel">Close</button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Login Popup -->
+              <div class="form-popup" id="loginPopup">
+                <form class="form-container">
+                  <div class="block-content">
+                    <h1>Login</h1>
+                    <br>
+
+                    <label for="username"><b>Username</b></label>
+                    <input type="text" placeholder="Enter Username" name="username" required>
+
+                    <label for="psw"><b>Password</b></label>
+                    <input type="password" placeholder="Enter Password" name="psw" required>
+
+                    <button type="button" id="login-submit" class="btn">Login</button>
+                    <button type="button" id="closeLoginPopup" class="btn cancel">Close</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Success Message Popup -->
+            <div id="success-popup" class="popup">
+              <div class="popup-content">
+                <p id="successMessage">Success!</p>
+                <span class="close" id="closeSuccessPopup">&times;</span>
+              </div>
+            </div>
+
+            <!-- Error Message Popup -->
+            <div id="error-popup" class="popup">
+              <div class="popup-content">
+                <p id="errorMessage"></p>
+                <span class="close" id="closeErrorPopup">&times;</span>
+              </div>
+            </div>
+
+          </div>
+          <div class="flex">
+            <button id="requestData" class="icon-button tooltip">
+              <span class="material-symbols-outlined" class="tooltip">
+                refresh
+              </span>
+              <span class="tooltiptext">
+                Refresh data
+              </span>
+            </button>
+            <p>
+              Last App Sync:
+              <span id="timestamp"></span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div id="serverStatusContainer">
+        <div class="flex">
+          <p>
+            Server status:
+            <span id="serverStatus" class="value">Checking...</span>
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <div class="main">
+
+      <div class="content">
+
+        <div id="photoFeedBlock" class="block block-photoFeed"  style="display: none;" >
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Photo Feed:</h3>
+            </div>
+            <div class="photoFeedImageContainer">
+              <img id="latestImage" alt="Latest Image" height="600" width="800"/>
+            </div>
+          </div>
+        </div>
+        <div id="modal" class="modal">
+          <span class="close" id="closeModal">&times;</span>
+          <img class="modal-content" id="img01">
+          <div id="caption"></div>
+        </div>
+        
+
+        <br>
+
+        <div class="block block-small input-block">
+          <div class="block-content">
+            <div class="block-title tooltip">
+              <h3>Light Intensity:</h3>
+              <span class="tooltiptext">
+                Adjust the light intensity
+              </span>
+            </div>
+            <div>
+              <input type="range" min="0" max="100" value="" class="slider" id="lightIntensity">
+            </div>
+            <div class="value">
+              <span id="lightIntensityValue"></span>%
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="lightIntensityStatus"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="block block-small input-block">
+          <div class="block-content">
+            <div class="block-title tooltip">
+              <h3>Fan threshold:</h3>
+              <span class="tooltiptext">
+                Fan turns on when air humidity is above this value.
+              </span>
+            </div>
+            <div>
+              <input type="range" min="0" max="100" value="" class="slider" id="fanThreshold">
+            </div>
+            <div class="value">
+              <span id="fanThresholdValue"></span>%
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="fanThresholdStatus"></span>
+            </div>
+          </div>
+        </div> 
+
+        <div class="block block-small input-block">
+          <div class="block-content">
+            <div class="block-title tooltip">
+              <h3>Pump threshold:</h3>
+              <span class="tooltiptext" style="width: 180px; margin-left: -90px;">
+                The water pump turns on when the soil humidity is below this value.
+              </span>
+            </div>
+            <div>
+              <input type="range" min="0" max="100" value="" class="slider" id="pumpThreshold">
+            </div>
+            <div class="value">
+              <span id="pumpThresholdValue"></span>%
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="pumpThresholdStatus"></span>
+            </div>
+          </div>
+        </div> 
+
+        <div class="block block-double input-block">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Light Start Time:</h3>
+            </div>
+            <div>
+              <input type="time" id="lightStartTime">
+            </div>
+            <div class="value">
+              <span id="lightStartTimeValue"></span>
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="lightStartTimeStatus"></span>
+            </div>
+          </div>
+          <div class="block-content">
+            <div class="block-title">
+              <h3>Light Stop Time:</h3>
+            </div>
+            <div>
+              <input type="time" id="lightStopTime">
+            </div>
+            <div class="value">
+              <span id="lightStopTimeValue"></span>
+            </div>
+            <div class="controlStatus">
+              Status:
+              <span id="lightStopTimeStatus"></span>
+            </div>
+          </div>
+        </div> 
+
+        <br>
+
+        <div class="block block-small">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>
+                Air humidity:
+              </h3>
+            </div>
+            <div class="value">
+              <span id="air-humidity"></span>%
+            </div>
+          </div>
+        </div>
+
+        <div class="block block-small">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>
+                Air temperature:
+              </h3>
+            </div>
+            <div class="value">
+              <span id="air-temp"></span>°C
+            </div>
+          </div>
+        </div>
+
+        <div class="block block-small">
+          <div class="block-content">
+            <div class="block-title">
+              <h3>
+                Soil humidity:
+              </h3>
+            </div>
+            <div class="value">
+              <span id="soil-humidity"></span>%
+            </div>
+          </div>
+        </div>
+
+        <div class="graph-container">
+          <canvas id="temperatureChart"></canvas>
+          <button id="resetZoom">Reset Zoom</button>
+          <div class="loading-popup" id="loading-popup">
+            <div class="loading-content">
+              <div class="spinner"></div>
+              <p>Loading data...</p>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+
+
+      <div class="custom-hr">
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+        <div class="custom-hr-line"></div>
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+        <div class="custom-hr-line"></div>
+        <div class="custom-hr-middle">
+          <div class="custom-hr-dot"></div>
+          <div class="custom-hr-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-container">
+        <div class="footer-text">
+          <p>2023 M.A.P.L.E - Modular Automated Plant Life Enclosure</p>
+          <p>Designed and Developed by <a href="https://github.com/Cpp-homies">H.O.M.I.E.S</a></p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/Cpp-homies/MAPLE" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+        </div>
+      </div>
+    </footer>
+    <!-- End Footer -->
+
+  </body>
+
+
+  <script src="/main.js"></script>
+
+</html>
