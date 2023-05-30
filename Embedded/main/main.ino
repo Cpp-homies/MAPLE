@@ -1,5 +1,3 @@
-
-
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -22,6 +20,7 @@
 #include "SD.h"
 #include "SPI.h"
 #include <HardwareSerial.h>
+#include <AccelStepper.h>
 
 //OLED
 #define SCREEN_WIDTH 128 
@@ -31,14 +30,19 @@
 #define JSON_CONFIG_FILE "/config_maple_user.json"
 //rotary
 #define CLICKS_PER_STEP   4
+#define MIN_POS 0
+#define MAX_POS 4
+#define INCREMENT 1
+//pump motor
+#define motorInterfaceType 1
 //GPIO pins
 #define ROTARY_PIN1	33
 #define ROTARY_PIN2	25
 #define BUTTON_PIN	26
 #define LIGHT_SENSOR 34
 #define SOIL_SENSOR 35
-#define DIR 27
-#define STEP 14
+//#define DIR 27
+//#define STEP 14
 #define LIGHTS 32
 #define FAN 13
 #define PUMP_POWER 12
@@ -47,6 +51,8 @@
 #define I2C_SDA 16
 #define I2C_SCL 17
 
+const int STEP = 14;
+const int DIR = 27;
 
 //PWM variables
 int freq = 2000;
@@ -54,13 +60,33 @@ int pwmResolution = 8;
 int pwmChannel_0 = 0;
 int pwmChannel_2 = 2;
 
-uint16_t analogWet = 1500;
-uint16_t analogDry = 3000;
+int lightCheckPreviousMillis = 0;
+int lightCheckInterval = 10000; 
+int pumpCheckPreviousMillis = 0;
+int pumpCheckInterval = 10000;
+int pumpInterval = 10000; 
+uint16_t analogWet = 1420;
+uint16_t analogDry = 2950;
+uint16_t lightCutOff = 90;
+uint16_t lightMax = 10;
+uint16_t pumpTriggerPercent = 30;
+int pumpStopPercent = 85;
+bool watering = false;
+String pumpingTime = "N/A";
 uint8_t brightness;
-int pumpSpeed = 1200;
+int lightPercentage = 100;
+String lightStartTime = "08:00";
+String lightStopTime = "22:00";
+int pumpSpeed = 800;
 int fanSpeed = 240; //190-255
+int fanThreshold = 50;
 bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
+bool executeMenu = false;
+bool inWifiConfig = false;
+bool offlineMode = true;
+uint8_t menuPosition = 0;
+bool reset = false;
 const char *dataFile = "/mapleData.csv"; //data logging file path
 hw_timer_t *timer = NULL; //rotary timer
 uint32_t I2Cfreq = 100000;
@@ -72,14 +98,9 @@ Adafruit_BME280 bme;
 HardwareSerial SerialPort(2); //UART2
 ESPRotary r;
 Button2 b;
+AccelStepper stepper(motorInterfaceType, STEP, DIR);
 
-
-//Rottary handler
-void IRAM_ATTR handleLoop() {
-  r.loop();
-  b.loop();
-}
-
+String myTimezone ="EET-2EEST,M3.5.0/3,M10.5.0/4";
 
 unsigned long previousMillis = 0;
 const long interval = 30000;
@@ -141,6 +162,41 @@ int getNewRequest(DynamicJsonDocument *requestArgs) {
     }
 }
 
+// function for updating the control parameter on the cloud server
+void updateCloudControlParameters(int lightPercentage, int fanThreshold, int pumpTriggerPercent, String lightStartTime, String lightStopTime) {
+  // Create a JSON payload with the control parameters
+  StaticJsonDocument<512> jsonPayload;
+  jsonPayload["lightIntensity"] = lightPercentage;
+  jsonPayload["fanThreshold"] = fanThreshold;
+  jsonPayload["pumpThreshold"] = pumpTriggerPercent;
+  jsonPayload["lightStartTime"] = lightStartTime;
+  jsonPayload["lightStopTime"] = lightStopTime;
+  jsonPayload["user_id"] = hashedUsername;
+  jsonPayload["password"] = hashedPassword;
+
+  // Serialize the JSON payload to a string
+  String payloadString;
+  serializeJson(jsonPayload, payloadString);
+
+  String address = BASE_URL + "/esp-control-pars-update";
+  HTTPClient http;
+  http.begin(address);
+
+  // Set the content type header to JSON
+  http.addHeader("Content-Type", "application/json");
+
+  // Send the PUT request with the JSON payload
+  int httpResponseCode = http.PUT(payloadString);
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println(response);
+  } else {
+    String response = http.getString();
+    Serial.print("Error sending request: ");
+    Serial.println(httpResponseCode);
+  }
+  http.end();
+}
 
 // a mini server that check for new data requests from the cloud
 void Listener( void * pvParameters ){
@@ -155,18 +211,27 @@ void Listener( void * pvParameters ){
     Serial.println("Cloud authentication failed for core 0");
   }
 
-  // unsigned long listenerPreviousMillis = 0;
+  unsigned long listenerPreviousMillis = 0;
+  const long controlParameters_updateInterval = 5000; // 5s
+  unsigned long controlParUpdatePreviousMillis = 0;
   // const long listeningInterval = 5000;
   // an infinite loop equivalent to the void loop() function on the main core
   for(;;){
-    // unsigned long currentMillis = millis();
+    unsigned long currentMillis = millis();
+
+    // update (sync) the control parameters on the server side periodically
+    if (currentMillis - controlParUpdatePreviousMillis >= controlParameters_updateInterval) {
+      controlParUpdatePreviousMillis = currentMillis;
+      updateCloudControlParameters(lightPercentage, fanThreshold, pumpTriggerPercent, lightStartTime, lightStopTime);
+    }
+
     // if (currentMillis - listenerPreviousMillis >= listeningInterval) {
       // listenerPreviousMillis = currentMillis;
       // JSON document for keeping request arguments
       // int *requestArgs = (int*) malloc(10 * sizeof(int));
-      const size_t capacity = JSON_OBJECT_SIZE(1) + 20;
+      const size_t capacity = JSON_OBJECT_SIZE(1) + 256;
       DynamicJsonDocument requestArgs(capacity);
-
+    
       int httpResponseCode = getNewRequest(&requestArgs);
 
       if (httpResponseCode == -1) {
@@ -176,6 +241,9 @@ void Listener( void * pvParameters ){
       else {
         // get the request type
         int requestType = requestArgs["type"];
+        // the value that go with the request (if applicable)
+        int requestValue;
+        char requestStringValue[5];
 
         
 
@@ -204,11 +272,76 @@ void Listener( void * pvParameters ){
             
             break;
           }
+          // SET Pump threshold
+          case 2: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received pump threshold SET request from server, with threshold ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            pumpTriggerPercent = requestValue;
+            
+            break;
+          }
+          // SET Fan threshold
+          case 3: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received fan threshold SET request from server, with threshold ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            fanThreshold = requestValue;
+            
+            break;
+          }
+          // SET Light intensity
+          case 4: {
+            // get the set value
+            requestValue = requestArgs["value"];
+            Serial.print("Received light intensity SET request from server, with level ");
+            Serial.println(requestValue);
+
+            
+            // Setting the threshold
+            lightPercentage = requestValue;
+            
+            break;
+          }
+          // SET light start time
+          case 5: {
+            // get the set value
+            strncpy(requestStringValue,requestArgs["value"],sizeof(requestStringValue)) ;
+            Serial.print("Received light start time SET request from server, with time ");
+            Serial.println(requestStringValue);
+
+            
+            // Setting the threshold
+            lightStartTime = String(requestStringValue);
+            
+            break;
+          }
+          // SET light stop time
+          case 6: {
+            // get the set value
+            strncpy(requestStringValue,requestArgs["value"],sizeof(requestStringValue)) ;
+            Serial.print("Received light stop time SET request from server, with time ");
+            Serial.println(requestStringValue);
+
+            
+            // Setting the threshold
+            lightStopTime = String(requestStringValue);
+            
+            break;
+          }
           default:
           //
             Serial.print("Received unknown request from cloud server with type: ");
             Serial.println(requestType);
-          break;
+            break;
         }
       }
 
@@ -224,10 +357,10 @@ void Listener( void * pvParameters ){
 // the data is sent to esp-req/sensordata/<timestamp> resource on the cloud server
 void sendData(float temp, float airHumid, float soilHumid) {
   // Create a JSON payload with the temperature and humidity values
-    StaticJsonDocument<128> jsonPayload;
+    StaticJsonDocument<512> jsonPayload;
     jsonPayload["temp"] = temp;
     jsonPayload["air_humid"] = airHumid;
-    jsonPayload["soil_humid"] = soilHumid;//here
+    jsonPayload["soil_humid"] = soilHumid;
     jsonPayload["user_id"] = hashedUsername;
     jsonPayload["password"] = hashedPassword;
 
@@ -405,6 +538,8 @@ void setup() {
     //for(;;);
   }
   Serial.println("Display connected.");
+  displayMaple();
+
   bool status = bme.begin(0x76,&I2C);  
   if (!status) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
@@ -420,19 +555,34 @@ void setup() {
   pinMode(DIR, OUTPUT);
 
   digitalWrite(PUMP_POWER, LOW);
+  ledcAttachPin(LIGHTS, pwmChannel_0);
+  ledcAttachPin(FAN, pwmChannel_2);
+
+  adjustLights();
+
+  stepper.setMaxSpeed(1000);
+  //stepper.setAcceleration(50);
+  stepper.setSpeed(400);
+  stepper.moveTo(200);
+  //stepper.setCurrentPosition(0);      
 
   // configure PWM functionalitites
   ledcSetup(pwmChannel_0, freq, pwmResolution);
   ledcSetup(pwmChannel_2, freq, pwmResolution);
   // attach the channel to the GPIO to be controlled
-  ledcAttachPin(LIGHTS, pwmChannel_0);
-  ledcAttachPin(FAN, pwmChannel_2);
+  
   
   display.setTextColor(WHITE);
-  displayBoot();
+  
+  initRotary();
 
-  configWifi();
+  
 
+  configWifi(false);
+
+  initTime(myTimezone);
+
+  adjustLights();
 
   // Hash the username and password obtained from the user and store it to the global variables
   hashedUsername = hashString(usernameString);
@@ -450,10 +600,11 @@ void setup() {
   
   initSDcard();
   
-  initRotary();
+  
   
   // execute the listener server on a different core (core 0)
-  xTaskCreatePinnedToCore(
+  if(!offlineMode){
+    xTaskCreatePinnedToCore(
                     Listener,   /* Task function. */
                     "Listener",     /* name of task. */
                     10000,       /* Stack size of task */
@@ -461,16 +612,24 @@ void setup() {
                     1,           /* priority of the task */
                     &listenerHandle,      /* Task handle to keep track of created task */
                     0);          /* pin task to core 0 */  
+  }
+  
   
 }
 
 /////////////////////////////////////////////////////////////////
 //Rotary methods
 
+//Rottary handler
+void IRAM_ATTR handleLoop() {
+  r.loop();
+  b.loop();
+}
+
 void initRotary(){
-  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP);
-  r.setRightRotationHandler(screenModeSoil);
-  r.setLeftRotationHandler(screenModeAir); 
+  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP, MIN_POS, MAX_POS, 0, INCREMENT);
+  r.setRightRotationHandler(screenModeRight);
+  r.setLeftRotationHandler(screenModeLeft); 
   b.begin(BUTTON_PIN);
   b.setTapHandler(click);
   b.setLongClickHandler(resetPosition);
@@ -480,39 +639,104 @@ void initRotary(){
   timerAlarmWrite(timer, 3000, true); // every 0.3 seconds
   timerAlarmEnable(timer);
 
-
-       
-
-
 }
 
+
+
 //when turned left
-void screenModeAir(ESPRotary& r){
-  screenMode = 0;
+void screenModeLeft(ESPRotary& r){
+  if (screenMode == 2 || screenMode == 3 || screenMode == 4){
+    menuPosition = r.getPosition();
+    Serial.println(menuPosition);
+  } else if(screenMode == 1){
+    screenMode = 0;
+  }
+  
   Serial.println(r.directionToString(r.getDirection()));
 
 }
 
 //when turned right
-void screenModeSoil(ESPRotary& r){
-  screenMode = 1;
+void screenModeRight(ESPRotary& r){
+  if (screenMode == 2 || screenMode == 3 || screenMode == 4){
+    menuPosition = r.getPosition();
+    Serial.println(menuPosition);
+  } else if (screenMode == 0){
+    screenMode = 1;
+  }
+  
   Serial.println(r.directionToString(r.getDirection()));
 }
 
 // single click
 void click(Button2& btn) {
-  Serial.println("Click!");
+
+  //r.resetPosition();
+  if(inWifiConfig){
+    wm.stopConfigPortal();
+    offlineMode = true;
+  } else if(screenMode == 2){
+    executeMenu = true;
+  } else if( offlineMode && (screenMode == 1 || screenMode == 0)){
+    screenMode = 2;
+  } else if(screenMode == 3){
+    screenMode = 31;
+    pumpTriggerPercent = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(100);
+  } else if(screenMode == 4){
+    lightPercentage = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(4);
+    screenMode = 0;
+  } else if(screenMode == 31){
+    pumpStopPercent = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(4);
+    screenMode = 0;
+  } else if(screenMode == 5){
+    fanThreshold = r.getPosition();
+    r.resetPosition();
+    r.setUpperBound(4);
+    screenMode = 0;
+  }
+  
 }
 
 // long click
 void resetPosition(Button2& btn) {
-  r.resetPosition();
-  Serial.println("Reset!");
+  reset = true;
 }
+
+/////////////////////////////////////////////////////////////////
+//Time and timezone methods
+
+void setTimezone(String timezone){
+  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
+  setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+  tzset();
+}
+
+// Connect to NTP server and adjust timezone
+void initTime(String timezone){
+  struct tm timeinfo;
+  Serial.println("Setting up time");
+  configTime(0, 0, "pool.ntp.org");    // First connect to NTP server, with 0 TZ offset
+  if(!getLocalTime(&timeinfo)){
+    Serial.println(" Failed to obtain time");
+    return;
+  }
+  Serial.println("Got the time from NTP");
+  // Now we can set the real timezone
+  setTimezone(timezone);
+}
+
+/////////////////////////////////////////////////////////////////
+
 /////////////////////////////////////////////////////////////////
 //SDcard methods
 
-void logData(){
+void logData(float temp, float airHum, float soilHum){
   File file = SD.open(dataFile);
   if(!file){
     file = SD.open(dataFile, FILE_WRITE);
@@ -529,7 +753,7 @@ void logData(){
     if(!file){
         Serial.println("Failed to open file for data logging");
     }
-  String toWrite = String(bme.readTemperature())+","+ String(bme.readHumidity())+","+ String(analogRead(SOIL_SENSOR));
+  String toWrite = String(temp)+","+ String(airHum)+","+ String(soilHum);
   char buffer[toWrite.length()+1];
   toWrite.toCharArray(buffer, toWrite.length()+1);
   file.println(buffer);
@@ -656,9 +880,11 @@ void configModeCallback(WiFiManager *myWiFiManager){
   Serial.println(WiFi.softAPIP());
 }
 
-void configWifi() {
+void configWifi(bool config) {
   // Change to true when testing to force configuration every time we run
-  bool forceConfig = false;
+  inWifiConfig = true;
+  
+  bool forceConfig = config;
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
   {
@@ -688,33 +914,50 @@ void configWifi() {
   // Add all defined parameters
   wm.addParameter(&custom_text_box_username);
   wm.addParameter(&custom_text_box_password);
- 
+  //wm.setConfigPortalBlocking(false);
   if (forceConfig)
     // Run if we need a configuration
   {
+    
+    displayBoot();
     if (!wm.startConfigPortal("M.A.P.L.E.", "homeworkhomies"))
     {
-      Serial.println("failed to connect and hit timeout");
-      delay(3000);
+      //Serial.println("failed to connect and hit timeout");
+      //delay(3000);
       //reset and try again, or maybe put it to deep sleep
-      ESP.restart();
-      delay(5000);
+      //ESP.restart();
+      display.clearDisplay();
+      display.setTextColor(SSD1306_WHITE);
+      display.setTextSize(2);
+      display.setCursor(0, 20);
+      display.print("Offline");
+      display.display();
+      delay(2000);
+      inWifiConfig = false;
+      return;
     }
   }
   else
   {
+    displayBoot();
     if (!wm.autoConnect("M.A.P.L.E.", "homeworkhomies"))
     {
-      Serial.println("failed to connect and hit timeout");
-      delay(3000);
-      // if we still have not connected restart and try all over again
-      ESP.restart();
-      delay(5000);
+      display.clearDisplay();
+      display.setTextColor(SSD1306_WHITE);
+      display.setTextSize(2);
+      display.setCursor(0, 20);
+      display.println("Offline");
+      display.display();
+      delay(2000);
+      inWifiConfig = false;
+      return;
+      
     }
   }
  
   // If we get here, we are connected to the WiFi
- 
+  offlineMode = false;
+  inWifiConfig = false;
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
@@ -753,14 +996,14 @@ void configWifi() {
     saveConfigFile();
   }
 
-  configTime(0, 0, "pool.ntp.org");
+  //configTime(0, 0, "pool.ntp.org");
 }
 /////////////////////////////////////////////////////////////////
 //display methods
 
 void displaySoilData(){
   display.clearDisplay();
-  // display temperature
+  display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
   display.setCursor(0,0);
   display.print("Soil humidity:");
@@ -769,13 +1012,15 @@ void displaySoilData(){
   display.print(convertToSoilHumidity(analogRead(SOIL_SENSOR)));
   display.print(" %");
   
-  // display humidity
+  
   display.setTextSize(1);
   display.setCursor(0, 35);
   display.print("Last watering: ");
-  display.setTextSize(2);
-  display.setCursor(0, 45);
-  display.print("Some time");
+  display.setTextSize(1);
+  //display.setCursor(0, 45);
+  display.println("");
+  display.println("");
+  display.print(pumpingTime);
    
   
   display.display();  
@@ -784,6 +1029,7 @@ void displaySoilData(){
 void displayTempHumidity(){
   display.clearDisplay();
   // display temperature
+  display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
   display.setCursor(0,0);
   display.print("Temperature: ");
@@ -809,24 +1055,109 @@ void displayTempHumidity(){
   display.display();
 }
 
-void displayLightIntensity(){
+
+
+void displayMaple(){
   display.clearDisplay();
-  // display temperature
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("Light intensity: ");
   display.setTextSize(2);
-  display.setCursor(0,10);
-  Serial.println(analogRead(LIGHT_SENSOR));
-  display.print(String(analogRead(LIGHT_SENSOR)));
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 15);
+  display.println("M.A.P.L.E.");
   display.display();
 }
 
 void displayBoot(){
   display.clearDisplay();
   display.setTextSize(2);
+  display.setCursor(0, 0);
+  display.println("LOG IN ...");
+  display.setCursor(0, 25);
+  //display.setCursor(40, display.getCursorY());
+  display.println("    OR    ");
+  display.setCursor(0, 45);
+  display.println(" CONTINUE?");
+  display.display();
+}
+
+void displayMenu(){
+  display.clearDisplay();
+  const char *options[5] = { 
+     
+    "   WIFI   \n   LOGIN  ", 
+    " WATERING \n THRESHOLD", 
+    "  LIGHT   \n THRESHOLD",
+    "   FAN    \n THRESHOLD",
+    "   EXIT   " 
+  };
+  
+  display.setCursor(40, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("MENU");
+  display.println("");
+  
+    display.setCursor(0, 25);
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_BLACK,SSD1306_WHITE);
+    display.println(options[menuPosition]);
+  display.display();
+}
+
+void displayPumping(){
+  display.clearDisplay();
+  display.setTextSize(2);
   display.setCursor(5, 25);
-  display.print("M.A.P.L.E.");
+  display.print("Pumping...");
+  display.display();
+}
+
+void displayWateringOption(){
+  
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Dry %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
+  display.display();
+}
+
+void displayWateringOption2(){
+  
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Wet %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
+  display.display();
+}
+
+void displayLightOption(){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Light %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
+  display.display();
+}
+
+void displayFanOption(){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 4);
+  display.println("Air hum %");
+  display.println("");
+  display.print(r.getPosition());
+  display.print("%");
   display.display();
 }
 /////////////////////////////////////////////////////////////////
@@ -835,52 +1166,90 @@ void displayBoot(){
 
 
 void adjustLights(){
-  /*
-  if (analogRead(LIGHT_SENSOR)>3000){
-    digitalWrite(LIGHTS,LOW);
-  } 
-  else {
-    digitalWrite(LIGHTS, HIGH);
-  }*/
-  int lightIntensity = analogRead(LIGHT_SENSOR);
+  if(!offlineMode){
+    Serial.println("LIGHTS ONLINE MODE");
+    int lightOn = lightStartTime.substring(0,2).toInt()*60+lightStartTime.substring(3).toInt();
+    int lightOff = lightStopTime.substring(0,2).toInt()*60+lightStopTime.substring(3).toInt();
+    char timeStr[20];
+    time_t now = time(nullptr);
+    struct tm* timeinfo = localtime(&now);
+    int timeNow = (timeinfo->tm_hour)*60+(timeinfo->tm_min);
+    Serial.println(lightOn);
+    Serial.println(lightOff);
+    Serial.println(timeNow);
+    if(timeNow > lightOn && timeNow<lightOff){
+      Serial.println("LIGHT ON TIME");
+      int lightIntensity = analogRead(LIGHT_SENSOR);
+    
+      //Serial.println(lightIntensity);
+      int brightnessPercent = map(lightIntensity, 0, 4095, 0, 100);
+      if(brightnessPercent>=lightPercentage){
+        brightness=0;
+      } else {
+        
+        brightness = map(lightPercentage-brightnessPercent,0,100,0,255);
+      }
+    } else brightness = 0;
+  } else {
+    Serial.println("LIGHTS OFFLINE MODE");
+    int lightIntensity = analogRead(LIGHT_SENSOR);
+    int brightnessPercent = map(lightIntensity, 0, 4095, 0, 100);
+      if(brightnessPercent>=lightPercentage){
+        brightness=0;
+      } else {
+        brightness = map(lightPercentage-brightnessPercent,0,100,0,255);
+      }
+  }
   
-  //Serial.println(lightIntensity);
-  if(lightIntensity<=3600){
-    brightness = map(lightIntensity, 3600, 0, 0, 255);
+  
+  /*
+  if(brightnessPercent<lightCutOff){
+    if(brightnessPercent>lightMax){
+      brightness = map(brightnessPercent,lightCutOff,lightMax,0,255);
+    } else {
+      brightness = 255;
+    }
     //Serial.println(brightness);
   } else {
     brightness = 0;
   }
+  */
   //ledcWrite(pwmChannel_0, 255);
   ledcWrite(pwmChannel_0, brightness);
 }
 
 bool needsWater(){
-  int dry = 3000;
-  int wet = 1600;
-  if(analogRead(SOIL_SENSOR)>2500){
+  if(watering){
+    if(convertToSoilHumidity(analogRead(SOIL_SENSOR))<pumpStopPercent){
+      return true;
+    } else return false;
+  }
+  if(convertToSoilHumidity(analogRead(SOIL_SENSOR))<pumpTriggerPercent){
     return true;
   } else return false;
 }
 
 void pumpWater(){
+  
   digitalWrite(PUMP_POWER,HIGH);
-  digitalWrite(DIR, HIGH);
-  while(needsWater()){
-    //displayTempHumidity();
-    //adjustLights();
+  displayPumping();
+  for(int i = 0; i<1000; ++i){
+  //for(;;){
+    
     digitalWrite(STEP, HIGH);
     delayMicroseconds(pumpSpeed);
     digitalWrite(STEP, LOW);
     delayMicroseconds(pumpSpeed);
+    
   }
+  
   digitalWrite(PUMP_POWER,LOW);
 }
 
 
 void checkAirHumidity(){
   
-  if(bme.readHumidity()>50.0){
+  if(bme.readHumidity()>fanThreshold){
     if(!fanOn){
       ledcWrite(pwmChannel_2, fanSpeed);
       Serial.println("FAN ON");
@@ -896,28 +1265,144 @@ void checkAirHumidity(){
 }
 
 float convertToSoilHumidity(uint16_t analogInput){ 
-  return (3050.0-float(analogInput))/15.0;
+  //Serial.println(analogInput);
+   int soilMoisturePercent = map(analogInput, analogDry, analogWet, 0, 100);
+  soilMoisturePercent = constrain(soilMoisturePercent, 0, 100);
+  
+  return soilMoisturePercent;
 }
 
 void loop() {
-  
+  if(reset) {
+
+    display.clearDisplay();
+          display.setTextSize(2);
+          display.setTextColor(SSD1306_WHITE);
+          display.setCursor(0, 40);
+          display.print("Resetting...");
+          display.display();
+          WiFi.disconnect(false,true);
+          delay(2000);
+          wm.resetSettings();
+          delay(2000);
+          ESP.restart();
+          
+  }
   
   if (screenMode == 0){
     displayTempHumidity();
-  } else {
+  } else if (screenMode == 1) {
     displaySoilData();
+  } else if (screenMode == 2) {
+    displayMenu();
+    if(executeMenu){
+      //Serial.println(menuPosition);
+      switch(menuPosition){
+        
+        case 0:
+          display.clearDisplay();
+          display.setTextSize(2);
+          display.setTextColor(SSD1306_WHITE);
+          display.setCursor(0, 40);
+          display.print("Processing\n   ....   ");
+          display.display();
+          WiFi.disconnect(false,true);
+          delay(2000);
+          wm.resetSettings();
+          delay(2000);
+          ESP.restart();
+          break;
+        case 1:
+          Serial.println("MODE 3");
+          screenMode = 3;
+          r.setUpperBound(100);
+          
+          break;
+        case 2:
+          Serial.println("MODE 4");
+          screenMode = 4;
+          r.setUpperBound(100);
+          break;
+        case 3:
+          screenMode = 5;
+          r.setUpperBound(100);
+          break;
+        case 4:
+          screenMode = 0;
+          break;
+
+      }
+      executeMenu = false;
+      menuPosition = 0;
+      r.resetPosition();
+    }
+    
+  } else if (screenMode == 3){    
+    displayWateringOption();
+  } else if (screenMode == 4){    
+    displayLightOption();
+  } else if (screenMode == 31){
+    displayWateringOption2();
+  } else if (screenMode = 5){
+    displayFanOption();
   }
   
-  adjustLights();
+  
   unsigned long currentMillis = millis();
-  if (needsWater()){
-    pumpWater();
+
+  //adjustLights(); 
+
+  if (currentMillis - lightCheckPreviousMillis >= lightCheckInterval) {
+    lightCheckPreviousMillis = currentMillis;
+
+    adjustLights(); 
+    
+  }
+ 
+  if (currentMillis - pumpCheckPreviousMillis >= pumpCheckInterval) {
+    pumpCheckPreviousMillis = currentMillis;
+
+     if (needsWater()) pumpWater();
+     if (needsWater()) {
+       pumpCheckInterval = 60000;
+       watering = true;
+     } else  {
+       if(offlineMode){
+
+       } else{
+         pumpCheckInterval = pumpInterval;
+        watering = false;
+        char timeStr[20];
+        time_t now = time(nullptr);
+        struct tm* timeinfo = localtime(&now);
+        strftime(timeStr, sizeof(timeStr), "%y/%m/%d %H:%M:%S", timeinfo);
+        pumpingTime = String(timeStr);
+      }
+       
+     }
   }
   
+  //log and send data
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    logData(); //to SDcard
-    sendData(bme.readTemperature(), bme.readHumidity(), convertToSoilHumidity(analogRead(SOIL_SENSOR)));    
+    float temp = 0;
+    float airHum = 0;
+    float soilHum = 0;
+    int count = 10;
+    for (int i = 0 ; i<count ; ++i){
+      temp += bme.readTemperature();
+      airHum += bme.readHumidity();
+      soilHum += convertToSoilHumidity(analogRead(SOIL_SENSOR));
+    }
+    temp = temp/(float)count;
+    airHum = airHum/(float)count;
+    soilHum = soilHum/(float)count;
+    logData(temp, airHum, soilHum); //to SDcard
+    if(!offlineMode){
+      sendData(temp, airHum, soilHum); //to cloud    
+    }
+    
+
   }
   checkAirHumidity();
   
