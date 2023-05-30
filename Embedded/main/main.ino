@@ -76,7 +76,7 @@ String pumpingTime = "N/A";
 uint8_t brightness;
 int lightPercentage = 100;
 String lightStartTime = "08:00";
-String lightStopTime = "11:10";
+String lightStopTime = "22:00";
 int pumpSpeed = 800;
 int fanSpeed = 240; //190-255
 int fanThreshold = 50;
@@ -84,7 +84,7 @@ bool fanOn = false;
 uint8_t screenMode = 0; //to define what to show on screen
 bool executeMenu = false;
 bool inWifiConfig = false;
-bool offlineMode = false;
+bool offlineMode = true;
 uint8_t menuPosition = 0;
 bool reset = false;
 const char *dataFile = "/mapleData.csv"; //data logging file path
@@ -229,7 +229,7 @@ void Listener( void * pvParameters ){
       // listenerPreviousMillis = currentMillis;
       // JSON document for keeping request arguments
       // int *requestArgs = (int*) malloc(10 * sizeof(int));
-      const size_t capacity = JSON_OBJECT_SIZE(1) + 20;
+      const size_t capacity = JSON_OBJECT_SIZE(1) + 256;
       DynamicJsonDocument requestArgs(capacity);
     
       int httpResponseCode = getNewRequest(&requestArgs);
@@ -243,6 +243,7 @@ void Listener( void * pvParameters ){
         int requestType = requestArgs["type"];
         // the value that go with the request (if applicable)
         int requestValue;
+        char requestStringValue[5];
 
         
 
@@ -313,26 +314,26 @@ void Listener( void * pvParameters ){
           // SET light start time
           case 5: {
             // get the set value
-            requestValue = requestArgs["value"];
+            strncpy(requestStringValue,requestArgs["value"],sizeof(requestStringValue)) ;
             Serial.print("Received light start time SET request from server, with time ");
-            Serial.println(requestValue);
+            Serial.println(requestStringValue);
 
             
             // Setting the threshold
-            lightStartTime = requestValue;
+            lightStartTime = String(requestStringValue);
             
             break;
           }
           // SET light stop time
           case 6: {
             // get the set value
-            requestValue = requestArgs["value"];
+            strncpy(requestStringValue,requestArgs["value"],sizeof(requestStringValue)) ;
             Serial.print("Received light stop time SET request from server, with time ");
-            Serial.println(requestValue);
+            Serial.println(requestStringValue);
 
             
             // Setting the threshold
-            lightStopTime = requestValue;
+            lightStopTime = String(requestStringValue);
             
             break;
           }
@@ -581,6 +582,7 @@ void setup() {
 
   initTime(myTimezone);
 
+  adjustLights();
 
   // Hash the username and password obtained from the user and store it to the global variables
   hashedUsername = hashString(usernameString);
@@ -954,6 +956,7 @@ void configWifi(bool config) {
   }
  
   // If we get here, we are connected to the WiFi
+  offlineMode = false;
   inWifiConfig = false;
   Serial.println("");
   Serial.println("WiFi connected");
@@ -1163,17 +1166,42 @@ void displayFanOption(){
 
 
 void adjustLights(){
-  
-
-  int lightIntensity = analogRead(LIGHT_SENSOR);
-  
-  //Serial.println(lightIntensity);
-  int brightnessPercent = map(lightIntensity, 0, 4095, 0, 100);
-  if(brightnessPercent>=lightPercentage){
-    brightness=0;
+  if(!offlineMode){
+    Serial.println("LIGHTS ONLINE MODE");
+    int lightOn = lightStartTime.substring(0,2).toInt()*60+lightStartTime.substring(3).toInt();
+    int lightOff = lightStopTime.substring(0,2).toInt()*60+lightStopTime.substring(3).toInt();
+    char timeStr[20];
+    time_t now = time(nullptr);
+    struct tm* timeinfo = localtime(&now);
+    int timeNow = (timeinfo->tm_hour)*60+(timeinfo->tm_min);
+    Serial.println(lightOn);
+    Serial.println(lightOff);
+    Serial.println(timeNow);
+    if(timeNow > lightOn && timeNow<lightOff){
+      Serial.println("LIGHT ON TIME");
+      int lightIntensity = analogRead(LIGHT_SENSOR);
+    
+      //Serial.println(lightIntensity);
+      int brightnessPercent = map(lightIntensity, 0, 4095, 0, 100);
+      if(brightnessPercent>=lightPercentage){
+        brightness=0;
+      } else {
+        
+        brightness = map(lightPercentage-brightnessPercent,0,100,0,255);
+      }
+    } else brightness = 0;
   } else {
-    brightness = map(lightPercentage-brightnessPercent,0,100,0,255);
+    Serial.println("LIGHTS OFFLINE MODE");
+    int lightIntensity = analogRead(LIGHT_SENSOR);
+    int brightnessPercent = map(lightIntensity, 0, 4095, 0, 100);
+      if(brightnessPercent>=lightPercentage){
+        brightness=0;
+      } else {
+        brightness = map(lightPercentage-brightnessPercent,0,100,0,255);
+      }
   }
+  
+  
   /*
   if(brightnessPercent<lightCutOff){
     if(brightnessPercent>lightMax){
@@ -1370,7 +1398,10 @@ void loop() {
     airHum = airHum/(float)count;
     soilHum = soilHum/(float)count;
     logData(temp, airHum, soilHum); //to SDcard
-    sendData(temp, airHum, soilHum); //to cloud    
+    if(!offlineMode){
+      sendData(temp, airHum, soilHum); //to cloud    
+    }
+    
 
   }
   checkAirHumidity();

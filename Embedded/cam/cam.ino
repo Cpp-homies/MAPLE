@@ -54,8 +54,8 @@ camera_config_t config;
 
 long currentMillis = 0;
 long previousMillis = 0;
-long interval = 1800000;
-//long interval = 10000;
+//long interval = 1800000;
+long interval = 30000;
 
 
 // Initializes the camera
