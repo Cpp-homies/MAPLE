@@ -122,9 +122,12 @@
 
           </div>
           <div class="flex">
-            <button id="requestData" class="icon-button">
-              <span class="material-symbols-outlined">
+            <button id="requestData" class="icon-button tooltip">
+              <span class="material-symbols-outlined" class="tooltip">
                 refresh
+              </span>
+              <span class="tooltiptext">
+                Refresh data
               </span>
             </button>
             <p>
@@ -170,8 +173,11 @@
 
         <div class="block block-small input-block">
           <div class="block-content">
-            <div class="block-title">
+            <div class="block-title tooltip">
               <h3>Light Intensity:</h3>
+              <span class="tooltiptext">
+                Adjust the light intensity
+              </span>
             </div>
             <div>
               <input type="range" min="0" max="100" value="" class="slider" id="lightIntensity">
@@ -188,8 +194,11 @@
 
         <div class="block block-small input-block">
           <div class="block-content">
-            <div class="block-title">
+            <div class="block-title tooltip">
               <h3>Fan threshold:</h3>
+              <span class="tooltiptext">
+                Fan turns on when air humidity is above this value.
+              </span>
             </div>
             <div>
               <input type="range" min="0" max="100" value="" class="slider" id="fanThreshold">
@@ -206,8 +215,11 @@
 
         <div class="block block-small input-block">
           <div class="block-content">
-            <div class="block-title">
+            <div class="block-title tooltip">
               <h3>Pump threshold:</h3>
+              <span class="tooltiptext" style="width: 180px; margin-left: -90px;">
+                The water pump turns on when the soil humidity is below this value.
+              </span>
             </div>
             <div>
               <input type="range" min="0" max="100" value="" class="slider" id="pumpThreshold">

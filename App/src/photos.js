@@ -9,8 +9,8 @@ export function updatePhoto() {
     document.getElementById("latestImage").src = latestImageUrl + "?t=" + new Date().getTime();
 }
 
-// Update image every 300 seconds (5mins)
-setInterval(updatePhoto, 300000);
+// Update image every 3 seconds
+setInterval(updatePhoto, 3000);
 
 // Get the modal
 var modal = document.getElementById("modal");

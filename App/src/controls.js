@@ -24,18 +24,21 @@ export async function startControl() {
         lightIntensityOutput.innerHTML = fetchedLightIntensity;
     } else if (localStorage.getItem("lightIntensity")) {
         lightIntensityOutput.innerHTML = localStorage.getItem("lightIntensity");
+        lightIntensitySlider.value = localStorage.getItem("lightIntensity");
     }
 
     if (fetchedFanThreshold != null) {
         fanThresholdOutput.innerHTML = fetchedFanThreshold;
     } else if (localStorage.getItem("fanThreshold")) {
         fanThresholdOutput.innerHTML = localStorage.getItem("fanThreshold");
+        fanThresholdSlider.value = localStorage.getItem("fanThreshold");
     }
 
     if (fetchedPumpThreshold != null) {
         pumpThresholdOutput.innerHTML = fetchedPumpThreshold;
     } else if (localStorage.getItem("pumpThreshold")) {
         pumpThresholdOutput.innerHTML = localStorage.getItem("pumpThreshold");
+        pumpThresholdSlider.value = localStorage.getItem("pumpThreshold");
     }
 
     if (fetchedLightStartTime != null) {
@@ -103,7 +106,9 @@ async function send(what, value) {
     const setUrl = `${url}${what}/set`;
 
     // Create the request body data
-    const data = value;
+    const data = {
+        value: value
+    };
 
     const status = document.getElementById(`${what}Status`);
     status.innerHTML = "Loading...";
@@ -115,6 +120,7 @@ async function send(what, value) {
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(data),
     })
         .then(response => {
@@ -148,6 +154,7 @@ async function fetchFromServer(what) {
     // Make the request
     await fetch(fetchUrl, {
         method: 'GET',
+        credentials: 'include',
     })
         .then(response => {
             if (!response.ok) {
@@ -157,6 +164,9 @@ async function fetchFromServer(what) {
         })
         .then(data => {
             console.log('Success:', data);
+
+            localStorage.setItem(what, data);
+
             status.innerHTML = "OK";
             status.style.color = "green";
             return data;
