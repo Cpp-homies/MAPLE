@@ -1,0 +1,4 @@
+(fp_lib_table
+  (lib (name "IRF3205STRLPBF")(type "KiCad")(uri "C:/Users/TheBeast/Documents/School/Semester4/DTAP/Project/PCB/Libraries/IRF3205STRLPBF")(options "")(descr ""))
+  (lib (name "TerminalBlock_2x5mm")(type "KiCad")(uri "C:/Users/TheBeast/Documents/School/Semester4/DTAP/Project/PCB/Libraries/TerminalBlock_2x5mm")(options "")(descr ""))
+)
